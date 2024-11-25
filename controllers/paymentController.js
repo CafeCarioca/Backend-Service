@@ -17,11 +17,12 @@ exports.createPreference = async (req, res) => {
     const preferenceBody = {
       items: items,
       back_urls: {
-        success: 'https://www.youtube.com/watch?v=-VD-l5BQsuE',
-        failure: 'https://www.youtube.com/watch?v=-VD-l5BQsuE',
-        pending: 'https://www.youtube.com/watch?v=-VD-l5BQsuE'
+      success: `${process.env.BASE_URL}/#/thank-you`,
+      failure: `${process.env.BASE_URL}/#/pay-failure`,
+      pending: `${process.env.BASE_URL}/#/pay-failure`
       },
-      auto_return: 'approved'
+      auto_return: 'approved',
+      notification_url: `${process.env.BASE_URL}/payments/webhook`,
     };
 
     console.log('PreferenceBody:', preferenceBody);
@@ -33,9 +34,48 @@ exports.createPreference = async (req, res) => {
       }
     });
 
+    console.log('Preference created:', response.data);
+
     res.status(200).json({ id: response.data.id });
   } catch (error) {
     console.error('Error creating preference:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.webhook = async (req, res) => {
+  console.log("Hola");
+  console.log('Webhook received:', req.body); // Para verificar el cuerpo completo
+
+  if (!req.body.data || !req.body.data.id) {
+    console.error('Payment ID not found in the webhook body');
+    return res.status(400).send('Invalid webhook structure');
+  }
+
+  const payment = req.body.data.id; // Asegúrate de que esto esté correcto
+  console.log('Payment ID:', payment);
+
+  try {
+    const response = await axios.get(`https://api.mercadopago.com/v1/payments/${payment}`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`
+      }
+    });
+
+    if (response.status === 200) {
+      const data = response.data;
+      console.log('Payment data:', data);
+      if (status === 'approved' && status_detail === 'accredited') {
+        console.log('Payment approved and accredited');
+        // Aquí puedes manejar el caso donde el pago se aprueba
+      } else {
+        console.log('Payment not approved or not accredited. Status:', status, 'Status Detail:', status_detail);
+        // Aquí puedes manejar el caso donde el pago no se aprueba
+      }
+    }
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Error fetching payment:', error);
+    res.sendStatus(500);
+  }
+}
