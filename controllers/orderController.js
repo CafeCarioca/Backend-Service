@@ -6,17 +6,29 @@ exports.deleteorder = async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
+    await connection.beginTransaction();
+
+    // Primero, eliminar los registros relacionados en order_items
+    await connection.execute(
+      'DELETE FROM order_items WHERE order_id = ?',
+      [req.params.orderId]
+    );
+
+    // Luego, eliminar el pedido en la tabla orders
     const [result] = await connection.execute(
       'DELETE FROM orders WHERE id = ?',
       [req.params.orderId]
     );
 
     if (result.affectedRows === 0) {
-      return res.status(500).json({ message: 'Failed to delete order' });
+      await connection.rollback();
+      return res.status(404).json({ message: 'Order not found or already deleted' });
     }
 
+    await connection.commit();
     res.status(200).json({ message: 'Order deleted successfully' });
   } catch (error) {
+    await connection.rollback();
     console.error('Error deleting order:', error);
     res.status(500).json({ message: error.message });
   } finally {
@@ -31,7 +43,7 @@ exports.changeorderstatus = async (req, res) => {
   try {
     const [result] = await connection.execute(
       'UPDATE orders SET status = ? WHERE id = ?',
-      [req.body.status, req.params.orderId]
+      [req.body.status, req.body.orderId]
     );
 
     if (result.affectedRows === 0) {

@@ -7,7 +7,7 @@ router.put('/change_order_status/:preferenceId', orderscontroller.changeOrderSta
 router.get('/get_order/:orderId', orderscontroller.getOrder);
 router.get('/checkstatus/:orderId', orderscontroller.checkOrderStatus);
 router.get('/get_paidorders', orderscontroller.getPaidOrders);
-router.get('/change_order_status', orderscontroller.changeorderstatus);
+router.put('/change_order_status', orderscontroller.changeorderstatus);
 router.delete('/delete_order/:orderId', orderscontroller.deleteorder);
 
 module.exports = router;
