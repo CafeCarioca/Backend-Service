@@ -1,5 +1,77 @@
 const pool = require('../models/db');
 
+
+
+exports.deleteorder = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const [result] = await connection.execute(
+      'DELETE FROM orders WHERE id = ?',
+      [req.params.orderId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(500).json({ message: 'Failed to delete order' });
+    }
+
+    res.status(200).json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    connection.release();
+  }
+}
+
+
+exports.changeorderstatus = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const [result] = await connection.execute(
+      'UPDATE orders SET status = ? WHERE id = ?',
+      [req.body.status, req.params.orderId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(500).json({ message: 'Failed to change order status' });
+    }
+
+    res.status(200).json({ message: 'Order status updated successfully' });
+  } catch (error) {
+    console.error('Error changing order status:', error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    connection.release();
+  }
+}
+
+// Función para obtener las órdenes pagadas
+exports.getPaidOrders = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    // Buscar todas las órdenes pagadas y el nombre del usuario
+    const [orders] = await connection.execute(
+      `SELECT orders.*, users.first_name, users.last_name 
+       FROM orders 
+       JOIN users ON orders.user_id = users.id 
+       WHERE orders.status IN (?, ?)`,
+      ['Pagado', 'En Camino']
+    );
+
+    // Devolver respuesta exitosa
+    res.status(200).json({ orders });
+  } catch (error) {
+    console.error('Error getting paid orders:', error);
+    res.status(500).json({ message: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+
 // Función para encontrar una orden por preference_id y cambiar su estado a "Pagado"
 exports.changeOrderStatusByPreferenceId = async (req, res) => {
   const { preferenceId } = req.params; // Obtener el preferenceId de los parámetros de la ruta
@@ -45,6 +117,9 @@ exports.createOrder = async (req, res) => {
   const { order } = req.body;
   const { userDetails, products, preferenceId } = order;
 
+  // Usamos userDetails.deliveryType para obtener el tipo de envío
+  const shippingType = userDetails.deliveryType;
+
   try {
     const [users] = await connection.execute(
       'SELECT id FROM users WHERE email = ?',
@@ -75,41 +150,46 @@ exports.createOrder = async (req, res) => {
       userId = result.insertId;
     }
 
-    const { street, doorNumber, apartment, department, postalCode, location } = userDetails.address;
-    const city = userDetails.address.city || department;
+    let addressId = null;
+    if (shippingType === 'delivery') {
+      // Solo buscamos o insertamos dirección si el tipo de envío es delivery
+      const { street, doorNumber, apartment, department, postalCode, location } = userDetails.address;
+      const city = userDetails.address.city || department;
 
-    const [existingAddresses] = await connection.execute(
-      'SELECT id FROM addresses WHERE user_id = ? AND street = ? AND door_number = ? AND apartment = ? AND department = ? AND city = ? AND state = ? AND postal_code = ? AND country = ?',
-      [userId, street, doorNumber, apartment, department, city, department, postalCode, userDetails.country]
-    );
-
-    let addressId = existingAddresses.length ? existingAddresses[0].id : null;
-
-    if (!addressId) {
-      const [result] = await connection.execute(
-        'INSERT INTO addresses (user_id, street, door_number, apartment, department, city, state, postal_code, country, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          userId,
-          street,
-          doorNumber,
-          apartment,
-          department,
-          city,
-          department,
-          postalCode,
-          userDetails.country,
-          location.lat,
-          location.lng
-        ]
+      const [existingAddresses] = await connection.execute(
+        'SELECT id FROM addresses WHERE user_id = ? AND street = ? AND door_number = ? AND apartment = ? AND department = ? AND city = ? AND state = ? AND postal_code = ? AND country = ?',
+        [userId, street, doorNumber, apartment, department, city, department, postalCode, userDetails.country]
       );
-      addressId = result.insertId;
+
+      if (!existingAddresses.length) {
+        const [result] = await connection.execute(
+          'INSERT INTO addresses (user_id, street, door_number, apartment, department, city, state, postal_code, country, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            userId,
+            street,
+            doorNumber,
+            apartment,
+            department,
+            city,
+            department,
+            postalCode,
+            userDetails.country,
+            location.lat,
+            location.lng
+          ]
+        );
+        addressId = result.insertId;
+      } else {
+        addressId = existingAddresses[0].id;
+      }
     }
 
     const total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
 
+    // Insertar la orden con el tipo de envío y address_id (NULL si es takeaway)
     const [orderResult] = await connection.execute(
-      'INSERT INTO orders (user_id, address_id, status, total, preference_Id) VALUES (?, ?, ?, ?, ?)',
-      [userId, addressId, 'No Pagado', total, preferenceId]
+      'INSERT INTO orders (user_id, address_id, status, total, preference_Id, shipping_type) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, addressId, 'No Pagado', total, preferenceId, shippingType]
     );
 
     const orderId = orderResult.insertId;
@@ -141,4 +221,97 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
 };
+
+
+exports.getOrder = async (req, res) => {
+  const connection = await pool.getConnection();
+  const { orderId } = req.params;
+
+  try {
+    const [orders] = await connection.execute(
+      'SELECT * FROM orders WHERE id = ?',
+      [orderId]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const order = orders[0];
+
+    const [user] = await connection.execute(
+      'SELECT * FROM users WHERE id = ?',
+      [order.user_id]
+    );
+
+    const [address] = await connection.execute(
+      'SELECT * FROM addresses WHERE id = ?',
+      [order.address_id]
+    );
+
+    const [items] = await connection.execute(
+      'SELECT * FROM order_items WHERE order_id = ?',
+      [order.id]
+    );
+
+    const products = [];
+
+    for (const item of items) {
+      const [product] = await connection.execute(
+        'SELECT * FROM products WHERE id = ?',
+        [item.product_id]
+      );
+
+      products.push({
+        ...product[0],
+        quantity: item.quantity,
+        price: item.price,
+        grams: item.grams,
+        grind: item.grind
+      });
+    }
+
+    connection.release();
+
+    res.status(200).json({
+      order: {
+        ...order,
+        user: user[0],
+        address: address[0],
+        products
+      }
+    });
+  } catch (error) {
+    console.error('Error getting order:', error);
+    connection.release();
+    res.status(500).json({ message: 'Failed to get order', error: error.message });
+  }
+}
+
+exports.checkOrderStatus = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const [orders] = await connection.execute(
+      'SELECT * FROM orders WHERE id = ?',
+      [req.params.orderId]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const order = orders[0];
+
+    if (order.status === 'Pagado') {
+      return res.status(200).json({ message: 'Order is paid' });
+    }
+
+    res.status(200).json({ message: 'Order is not paid' });
+  } catch (error) {
+    console.error('Error checking order status:', error);
+    connection.release();
+    res.status(500).json({ message: 'Failed to check order status', error: error.message });
+  }
+}
 

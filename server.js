@@ -4,7 +4,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const app = express();
+//const checkIP = require('./middlewares/checkIP');
 
+//app.use(checkIP);
 app.use(cors());
 
 app.get('/', (req, res) => {
@@ -16,6 +18,7 @@ const productsRoute = require('./routes/products');
 const usersRoute = require('./routes/users');
 const paymentRoutes = require('./routes/payments');
 const orderroute = require('./routes/orders');
+const emailRoute = require('./routes/emails');
 
 app.use(bodyParser.json());
 // Use the routes
@@ -23,6 +26,7 @@ app.use('/products', productsRoute);
 app.use('/users', usersRoute);
 app.use('/payments', paymentRoutes);
 app.use('/orders', orderroute);
+app.use('/emails', emailRoute);
 
 
 const port = process.env.PORT || 3000; // You can use environment variables for port configuration
