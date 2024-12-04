@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const orderscontroller = require('../controllers/orderController');
+const validateToken = require('../middlewares/authMiddleware');
 
-router.post('/create_order', orderscontroller.createOrder);
+router.post('/create_order', validateToken,orderscontroller.createOrder);
 router.put('/change_order_status/:external_reference', orderscontroller.changeOrderStatusByExternalReference);
 router.get('/get_order/:orderId', orderscontroller.getOrder);
 router.get('/checkstatus/:orderId', orderscontroller.checkOrderStatus);
