@@ -85,16 +85,16 @@ exports.getPaidOrders = async (req, res) => {
 
 
 // Función para encontrar una orden por preference_id y cambiar su estado a "Pagado"
-exports.changeOrderStatusByPreferenceId = async (req, res) => {
-  const { preferenceId } = req.params; // Obtener el preferenceId de los parámetros de la ruta
+exports.changeOrderStatusByExternalReference = async (req, res) => {
+  const { external_reference } = req.params; // Obtener el preferenceId de los parámetros de la ruta
 
   const connection = await pool.getConnection();
 
   try {
     // Buscar la orden por preference_id
     const [orders] = await connection.execute(
-      'SELECT * FROM orders WHERE preference_id = ?',
-      [preferenceId]
+      'SELECT * FROM orders WHERE external_reference = ?',
+      [external_reference]
     );
 
     if (orders.length === 0) {
