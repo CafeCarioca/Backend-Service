@@ -127,7 +127,7 @@ exports.createOrder = async (req, res) => {
   const connection = await pool.getConnection();
 
   const { order } = req.body;
-  const { userDetails, products, preferenceId } = order;
+  const { userDetails, products, external_reference } = order;
 
   // Usamos userDetails.deliveryType para obtener el tipo de envío
   const shippingType = userDetails.deliveryType;
@@ -200,8 +200,8 @@ exports.createOrder = async (req, res) => {
 
     // Insertar la orden con el tipo de envío y address_id (NULL si es takeaway)
     const [orderResult] = await connection.execute(
-      'INSERT INTO orders (user_id, address_id, status, total, preference_Id, shipping_type) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, addressId, 'No Pagado', total, preferenceId, shippingType]
+      'INSERT INTO orders (user_id, address_id, status, total, external_reference, shipping_type) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, addressId, 'No Pagado', total, external_reference, shippingType]
     );
 
     const orderId = orderResult.insertId;

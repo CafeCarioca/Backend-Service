@@ -5,24 +5,27 @@ exports.createPreference = async (req, res) => {
     const body = req.body;
     console.log('Parsed body:', body);
 
+    const externalReference = body.external_reference;
     const items = body.items.map(item => ({
       title: item.title,
       quantity: Number(item.quantity),
       unit_price: Number(item.unit_price),
       currency_id: 'UYU'
+      
     }));
 
     console.log('Items:', items);
 
     const preferenceBody = {
       items: items,
+      external_reference: externalReference,
       back_urls: {
-      success: `${process.env.BASE_URL}/#/thank-you`,
-      failure: `${process.env.BASE_URL}/#/pay-failure`,
-      pending: `${process.env.BASE_URL}/#/pay-failure`
+      success: `${process.env.BASEURL}/#/thank-you`,
+      failure: `${process.env.BASEURL}/#/pay-failure`,
+      pending: `${process.env.BASEURL}/#/pay-failure`
       },
       auto_return: 'approved',
-      notification_url: `${process.env.BASE_URL}/payments/webhook`,
+      notification_url: `${process.env.BASEURL}/payments/webhook`,
     };
 
     console.log('PreferenceBody:', preferenceBody);
@@ -44,7 +47,6 @@ exports.createPreference = async (req, res) => {
 };
 
 exports.webhook = async (req, res) => {
-  console.log("Hola");
   console.log('Webhook received:', req.body); // Para verificar el cuerpo completo
 
   if (!req.body.data || !req.body.data.id) {
