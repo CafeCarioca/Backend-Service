@@ -79,15 +79,25 @@ exports.webhook = async (req, res) => {
           console.log('Payment approved and accredited');
           try {
             console.log('Changing order status for external reference:', external_reference);
-            const response = await axios.put(`http://localhost:3000/orders/change_order_status/${external_reference}`);
+            const response = await axios.put(`http://localhost:3000/orders/change_order_status/${external_reference}`, {}, {
+              headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.STATIC_JWT}`
+              }
+            });
           
             if (response.status === 200 && response.data.orderId) {
               const orderID = response.data.orderId;
           
               // Realizar la segunda solicitud
-              const response2 = await axios.post(`http://localhost:3000/emails/sendorderemail`, {
+                const response2 = await axios.post(`http://localhost:3000/emails/sendorderemail`, {
                 orderId: orderID
-              });
+                }, {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.STATIC_JWT}`
+                }
+                });
           
               if (response2.status === 200) {
                 console.log('Email sent successfully');
