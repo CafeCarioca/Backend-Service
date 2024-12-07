@@ -25,7 +25,7 @@ exports.sendOrderConfirmation = async (req, res) => {
   
     try {
       // Obtener detalles de la orden
-      const response = await axios.get(`http://localhost:3000/orders/get_order/${orderId}`, {
+      const response = await axios.get(`https://cafecarioca.com.uy/api/orders/get_order/${orderId}`, {
         headers: {
           'Authorization': `Bearer ${process.env.STATIC_JWT}`,
           'Content-Type': 'application/json'
@@ -112,7 +112,7 @@ exports.sendOrderConfirmation = async (req, res) => {
   
     try {
       // Obtener detalles de la orden
-      const response = await axios.get(`http://localhost:3000/orders/get_order/${orderId}`, {
+      const response = await axios.get(`https://cafecarioca.com.uy/api/orders/get_order/${orderId}`, {
         headers: {
           'Authorization': `Bearer ${process.env.STATIC_JWT}`,
           'Content-Type': 'application/json'
