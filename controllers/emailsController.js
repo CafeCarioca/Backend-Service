@@ -37,7 +37,7 @@ exports.sendOrderConfirmation = async (req, res) => {
       const subject = `Carioca - Confirmación de Pedido - ${orderData.id}`;
   
       // URL del logo de la empresa
-      const logoUrl = 'https://tudominio.com/logo.png';
+      const logoUrl = 'https://res.cloudinary.com/du1lvkscc/image/upload/f_auto,q_auto/v1/Carioca/xjobfbjltevwguqhlmkf';
   
       // Construir el cuerpo del correo con estilos y logo
       let body = `
@@ -124,7 +124,7 @@ exports.sendOrderConfirmation = async (req, res) => {
       const subject = `Carioca - Tu Pedido Está en Camino - Pedido #${orderData.id}`;
   
       // URL del logo de la empresa
-      const logoUrl = 'https://tudominio.com/logo.png';
+      const logoUrl = 'https://res.cloudinary.com/du1lvkscc/image/upload/f_auto,q_auto/v1/Carioca/xjobfbjltevwguqhlmkf';
   
       // Construir el cuerpo del correo con estilos y logo
       let body = `
