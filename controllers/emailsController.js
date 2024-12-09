@@ -1,5 +1,6 @@
 const axios = require('axios');
 const nodemailer = require('nodemailer');
+const orderservice = require('../Helpers/orderHelper');
 require('dotenv').config();
 
 // Paleta de colores
@@ -25,13 +26,7 @@ exports.sendOrderConfirmation = async (req, res) => {
   
     try {
       // Obtener detalles de la orden
-      const response = await axios.get(`https://cafecarioca.com.uy/api/orders/get_order/${orderId}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.STATIC_JWT}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const orderData = response.data.order;
+      const orderData = await orderservice.getOrderById(orderId);
   
       // Construir el asunto
       const subject = `Carioca - Confirmación de Pedido - ${orderData.id}`;
@@ -112,13 +107,7 @@ exports.sendOrderConfirmation = async (req, res) => {
   
     try {
       // Obtener detalles de la orden
-      const response = await axios.get(`https://cafecarioca.com.uy/api/orders/get_order/${orderId}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.STATIC_JWT}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const orderData = response.data.order;
+      const orderData = await orderservice.getOrderById(orderId);
   
       // Construir el asunto
       const subject = `Carioca - Tu Pedido Está en Camino - Pedido #${orderData.id}`;
