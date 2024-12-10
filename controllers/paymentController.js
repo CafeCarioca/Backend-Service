@@ -24,9 +24,9 @@ exports.createPreference = async (req, res) => {
       items: items,
       external_reference: externalReference,
       back_urls: {
-      success: `${process.env.BASEURL}/#/thank-you`,
-      failure: `${process.env.BASEURL}/#/pay-failure`,
-      pending: `${process.env.BASEURL}/#/pay-failure`
+      success: `https://cafecarioca.com.uy/#/thank-you`,
+      failure: `https://cafecarioca.com.uy/#/pay-failure`,
+      pending: `https://cafecarioca.com.uy/#/pay-failure`
       },
       auto_return: 'approved',
       notification_url: `https://cafecarioca.com.uy/api/payments/webhook`,
