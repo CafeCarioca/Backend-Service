@@ -2,7 +2,7 @@ const axios = require('axios');
 const { changeOrderStatusByExternalReference } = require('./orderController');
 const { sendOrderConfirmation } = require('./emailsController');
 const orderService = require('../Helpers/orderHelper');
-const emailService = require('../Helpers/emailHelper');
+const { sendOrderConfirmationEmail } = require('../Helpers/emailHelper');
 
 exports.createPreference = async (req, res) => {
   try {
@@ -91,7 +91,7 @@ exports.webhook = async (req, res) => {
               const orderData = await orderService.getOrderById(orderId);
 
             // Enviar el correo de confirmación
-            const emailResponse = await emailService.sendOrderConfirmationEmail(orderData);
+            const emailResponse = await sendOrderConfirmationEmail(orderData);
             console.log('Order confirmation email sent successfully:', emailResponse);
           } catch (error) {
             console.error('Error processing order or sending email:', error.message);

@@ -18,7 +18,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Función para enviar correos electrónicos
-const sendOrderConfirmationEmail = async (orderData) => {
+exports.sendOrderConfirmationEmail = async (orderData) => {
   try {
     // Construir el asunto
     const subject = `Carioca - Confirmación de Pedido - ${orderData.id}`;
