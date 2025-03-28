@@ -1,0 +1,94 @@
+const db = require('../models/db');
+const axios = require('axios');
+
+// Obtener todos los productos con presentaciones
+exports.getAllProducts = async (req, res) => {
+  try {
+    const [products] = await db.query('SELECT * FROM products');
+
+    // Para cada producto, obtenemos sus presentaciones
+    const productData = await Promise.all(products.map(async (product) => {
+      const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [product.id]);
+      return { ...product, presentations };
+    }));
+
+    res.json(productData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener productos' });
+  }
+};
+
+// Obtener un producto por ID
+exports.getProductById = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [productRows] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
+    if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+
+    const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [id]);
+
+    res.json({ ...productRows[0], presentations });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener el producto' });
+  }
+};
+
+// Crear un nuevo producto con sus presentaciones
+exports.createProduct = async (req, res) => {
+  const { name, description, category, price, toasted, origin, flavors, presentations = [] } = req.body;
+
+  try {
+    const [result] = await db.query(
+      'INSERT INTO products (name, description, category, price, toasted, origin, flavors) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, description, category, price, toasted, origin, flavors]
+    );
+
+    const productId = result.insertId;
+
+    for (const p of presentations) {
+      await db.query(
+        'INSERT INTO presentations (product_id, weight, price) VALUES (?, ?, ?)',
+        [productId, p.weight, p.price]
+      );
+    }
+
+    res.status(201).json({ message: 'Producto creado', product_id: productId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al crear el producto' });
+  }
+};
+
+// Editar un producto
+exports.updateProduct = async (req, res) => {
+  const { id } = req.params;
+  const { name, description, category, price, toasted, origin, flavors } = req.body;
+
+  try {
+    const [result] = await db.query(
+      'UPDATE products SET name = ?, description = ?, category = ?, price = ?, toasted = ?, origin = ?, flavors = ? WHERE id = ?',
+      [name, description, category, price, toasted, origin, flavors, id]
+    );
+
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+
+    res.json({ message: 'Producto actualizado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el producto' });
+  }
+};
+
+// Eliminar un producto (y sus presentaciones en cascada)
+exports.deleteProduct = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.query('DELETE FROM products WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+
+    res.json({ message: 'Producto eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar el producto' });
+  }
+};
