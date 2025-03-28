@@ -95,17 +95,18 @@ exports.updateProduct = async (req, res) => {
 // Eliminar un producto (y sus presentaciones en cascada)
 exports.deleteProduct = async (req, res) => {
   const { id } = req.params;
+
   try {
-    const [result] = await db.query('DELETE FROM products WHERE id = ?', [id]);
+    const [result] = await db.query('UPDATE products SET available = FALSE WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    res.json({ message: 'Producto eliminado' });
+    res.json({ message: 'Producto marcado como no disponible' });
   } catch (error) {
-    console.error('Error al eliminar el producto:', error);
-    res.status(500).json({ error: 'Error al eliminar el producto' });
+    console.error('Error al desactivar el producto:', error);
+    res.status(500).json({ error: 'Error al desactivar el producto' });
   }
 };
 
