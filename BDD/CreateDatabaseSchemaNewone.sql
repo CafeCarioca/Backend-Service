@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS products (
     price DECIMAL(10,2) NULL,
     toasted VARCHAR(255),
     origin VARCHAR(100),
-    flavors VARCHAR(255)
+    flavors VARCHAR(255),
+    available BOOLEAN DEFAULT TRUE
 );
 
 -- Tabla de presentaciones para café en grano

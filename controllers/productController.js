@@ -63,21 +63,34 @@ exports.createProduct = async (req, res) => {
 // Editar un producto
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { name, description, category, price, toasted, origin, flavors } = req.body;
+  const fields = req.body;
+
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ error: 'No se enviaron campos para actualizar' });
+  }
+
+  const keys = Object.keys(fields);
+  const values = Object.values(fields);
+
+  const query = `
+    UPDATE products
+    SET ${keys.map((key) => `${key} = ?`).join(', ')}
+    WHERE id = ?
+  `;
 
   try {
-    const [result] = await db.query(
-      'UPDATE products SET name = ?, description = ?, category = ?, price = ?, toasted = ?, origin = ?, flavors = ? WHERE id = ?',
-      [name, description, category, price, toasted, origin, flavors, id]
-    );
-
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    const [result] = await db.query(query, [...values, id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
 
     res.json({ message: 'Producto actualizado' });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Error al actualizar el producto' });
   }
 };
+
 
 // Eliminar un producto (y sus presentaciones en cascada)
 exports.deleteProduct = async (req, res) => {
@@ -85,10 +98,14 @@ exports.deleteProduct = async (req, res) => {
   try {
     const [result] = await db.query('DELETE FROM products WHERE id = ?', [id]);
 
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
 
     res.json({ message: 'Producto eliminado' });
   } catch (error) {
+    console.error('Error al eliminar el producto:', error);
     res.status(500).json({ error: 'Error al eliminar el producto' });
   }
 };
+
