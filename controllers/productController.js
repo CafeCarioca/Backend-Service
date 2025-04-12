@@ -33,6 +33,23 @@ exports.getProductById = async (req, res) => {
   }
 };
 
+//Obtener producto por nombre
+exports.getProductByName = async (req, res) => {
+  const { name } = req.params;
+  try {
+    const [productRows] = await db.query('SELECT * FROM products WHERE name = ? AND available = TRUE', [name]);
+    if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+
+    const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [productRows[0].id]);
+
+    res.json({ ...productRows[0], presentations });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener el producto' });
+  }
+};
+
+
 // Crear un nuevo producto con presentaciones
 exports.createProduct = async (req, res) => {
   const { name, description, category, price, toasted, origin, flavors, image_url, secondary_image_url, presentations = [] } = req.body;

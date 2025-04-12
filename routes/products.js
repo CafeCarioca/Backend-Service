@@ -11,6 +11,8 @@ router.get('/', productController.getAllProducts);
 
 router.get('/:id', productController.getProductById);
 
+router.get('/name/:name', productController.getProductByName);
+
 router.post('/',validateToken, productController.createProduct);
 
 router.put('/:id',validateToken, productController.updateProduct);
