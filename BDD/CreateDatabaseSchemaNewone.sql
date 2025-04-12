@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS products (
     origin VARCHAR(100),
     flavors VARCHAR(255), 
     available BOOLEAN DEFAULT TRUE, 
-    image_url VARCHAR(255)
+    image_url VARCHAR(255),
+    secondary_image_url VARCHAR(255),
 );
 
 -- Tabla de presentaciones para café en grano

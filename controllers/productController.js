@@ -35,14 +35,14 @@ exports.getProductById = async (req, res) => {
 
 // Crear un nuevo producto con presentaciones
 exports.createProduct = async (req, res) => {
-  const { name, description, category, price, toasted, origin, flavors, image_url, presentations = [] } = req.body;
+  const { name, description, category, price, toasted, origin, flavors, image_url, secondary_image_url, presentations = [] } = req.body;
 
   try {
     const [result] = await db.query(
       `INSERT INTO products 
-       (name, description, category, price, toasted, origin, flavors, available, image_url) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
-      [name, description, category, price, toasted, origin, flavors, image_url]
+       (name, description, category, price, toasted, origin, flavors, available, image_url, secondary_image_url) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)`,
+      [name, description, category, price, toasted, origin, flavors, image_url, secondary_image_url]
     );
 
     const productId = result.insertId;
@@ -54,7 +54,7 @@ exports.createProduct = async (req, res) => {
       );
     }
 
-    res.status(201).json({ id: productId, name, description, category, price, toasted, origin, flavors, available: true, image_url, presentations });
+    res.status(201).json({ id: productId, name, description, category, price, toasted, origin, flavors, available: true, image_url, secondary_image_url, presentations });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al crear el producto' });
