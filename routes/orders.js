@@ -10,5 +10,7 @@ router.get('/checkstatus/:orderId', validateToken, orderscontroller.checkOrderSt
 router.get('/get_paidorders', validateToken, orderscontroller.getPaidOrders);
 router.put('/change_order_status', validateToken, orderscontroller.changeorderstatus);
 router.delete('/delete_order/:orderId', validateToken, orderscontroller.deleteorder);
+router.post('/get_ordersbyDateRange', validateToken, orderscontroller.getOrdersByDateRange);
+
 
 module.exports = router;

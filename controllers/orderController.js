@@ -327,3 +327,38 @@ exports.checkOrderStatus = async (req, res) => {
   }
 }
 
+exports.getOrdersByDateRange = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { startDate, endDate } = req.body;
+
+    // Asegúrate de que las fechas sean válidas
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Start date and end date are required' });
+    }
+
+    // Ajusta la fecha de finalización para incluir todo el día
+    const adjustedEndDate = `${endDate} 23:59:59`;
+
+    const [orders] = await connection.execute(
+      `SELECT orders.*, users.first_name, users.last_name 
+       FROM orders 
+       JOIN users ON orders.user_id = users.id 
+       WHERE orders.order_date BETWEEN ? AND ?`,
+      [startDate, adjustedEndDate]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'No orders found in the specified date range' });
+    }
+
+    res.status(200).json({ orders });
+  } catch (error) {
+    console.error('Error getting orders by date range:', error);
+    res.status(500).json({ message: 'Failed to get orders', error: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
