@@ -3,7 +3,7 @@ const db = require('../models/db');
 // Obtener todos los productos con presentaciones
 exports.getAllProducts = async (req, res) => {
   try {
-    const [products] = await db.query('SELECT * FROM products WHERE available = TRUE');
+    const [products] = await db.query('SELECT * FROM products');
 
     const productData = await Promise.all(products.map(async (product) => {
       const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [product.id]);
