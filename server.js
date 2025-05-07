@@ -20,8 +20,11 @@ const paymentRoutes = require('./routes/payments');
 const orderroute = require('./routes/orders');
 const emailRoute = require('./routes/emails');
 //const userRoute = require('./routes/users');
+const apiGoogleRoute = require('./routes/apiGoogle.js');
+
 
 app.use(bodyParser.json());
+
 // Use the routes
 app.use('/products', productsRoute);
 //app.use('/users', usersRoute);
@@ -30,6 +33,9 @@ app.use('/orders', orderroute);
 app.use('/emails', emailRoute);
 //app.use('/user', userRoute);
 
+// Route API Google Reviews
+
+app.use('/googleapi', apiGoogleRoute);
 
 
 
