@@ -8,7 +8,6 @@ exports.getReviews = async (req, res) => {
   try {
     // Agregamos language=es para solicitar las reseñas en español
     const googleUrl = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${PLACE_ID}&fields=reviews&language=es&key=${GOOGLE_API_KEY}`;
-    console.log(googleUrl)
     const response = await axios.get(googleUrl);
 
     if (response.data.status !== 'OK') {
