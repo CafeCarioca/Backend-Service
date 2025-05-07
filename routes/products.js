@@ -1,19 +1,28 @@
 // routes/products.js
 const express = require('express');
 const router = express.Router();
+const productController = require('../controllers/productController');
+const validateToken = require('../middlewares/authMiddleware');
 
-// Define a route
-router.get('/', (req, res) => {
-    res.send('this is product route');// this gets executed when user visit http://localhost:3000/products
-});
 
-router.get('/101', (req, res) => {
-    res.send('this is product 101 route');// this gets executed when user visit http://localhost:3000/product/101
-});
+// Endpoints productos
 
-router.get('/102', (req, res) => {
-    res.send('this is product 102 route');// this gets executed when user visit http://localhost:3000/product/102
-});
+router.get('/', productController.getAllProducts);
+
+router.get('/:id', productController.getProductById);
+
+router.get('/name/:name', productController.getProductByName);
+
+router.post('/',validateToken, productController.createProduct);
+
+router.put('/:id',validateToken, productController.updateProduct);
+
+router.delete('/:id',validateToken, productController.deleteProduct);
+
+
+
 
 // export the router module so that server.js file can use it
 module.exports = router;
+
+
