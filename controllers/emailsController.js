@@ -32,7 +32,7 @@ exports.sendOrderConfirmation = async (req, res) => {
       const subject = `Carioca - Confirmación de Pedido - ${orderData.id}`;
   
       // URL del logo de la empresa
-      const logoUrl = 'https://res.cloudinary.com/du1lvkscc/image/upload/f_auto,q_auto/v1/Carioca/xjobfbjltevwguqhlmkf';
+      const logoUrl = 'https://bucketcarioca.s3.us-east-1.amazonaws.com/Images/CAFE-CARIOCA-pg2.JPG';
   
       // Construir el cuerpo del correo con estilos y logo
       let body = `
