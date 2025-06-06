@@ -1,9 +1,13 @@
-// const express = require('express');
-// const router = express.Router();
-// const usercontroller = require('../controllers/usercontroller');
-// const validateToken = require('../middlewares/authMiddleware');
+const express = require('express');
+const router = express.Router();
+const usercontroller = require('../controllers/usercontroller');
+const validateToken = require('../middlewares/authMiddleware');
 
-// router.get('/getusers', validateToken, usercontroller.sendOrderConfirmation);
+router.get('/get_users', validateToken, usercontroller.getusers);
+
+//router.get('/get_user_by_id', validateToken, usercontroller.getUserById);
 
 
-// module.exports = router;
+
+// export the router module so that server.js file can use it
+module.exports = router;

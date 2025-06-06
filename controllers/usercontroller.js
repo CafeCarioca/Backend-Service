@@ -5,6 +5,7 @@ exports.getusers = async (req, res) => {
     const connection = await pool.getConnection();
     const [rows] = await connection.query('SELECT * FROM users');
     connection.release();
+    rows.forEach(user => delete user.password);
     res.json(rows);
   } catch (err) {
     console.error(err);
