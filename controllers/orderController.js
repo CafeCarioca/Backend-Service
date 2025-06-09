@@ -362,3 +362,33 @@ exports.getOrdersByDateRange = async (req, res) => {
   }
 };
 
+exports.getLastOrders = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const [orders] = await connection.execute(
+      `SELECT orders.*, users.first_name, users.last_name 
+       FROM orders 
+       JOIN users ON orders.user_id = users.id 
+       ORDER BY orders.order_date DESC 
+       LIMIT 5`
+    );
+
+  
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'No orders found' });
+    }
+    // Elimina el campo external_reference de cada orden antes de enviar la respuesta
+    orders.forEach(order => {
+      delete order.external_reference;
+    });
+
+    res.status(200).json({ orders });
+  } catch (error) {
+    console.error('Error getting last orders:', error);
+    res.status(500).json({ message: 'Failed to get last orders', error: error.message });
+  } finally {
+    connection.release();
+  }
+};
+

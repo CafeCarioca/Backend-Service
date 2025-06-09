@@ -5,7 +5,10 @@ const validateToken = require('../middlewares/authMiddleware');
 
 router.get('/get_users', validateToken, usercontroller.getusers);
 
-//router.get('/get_user_by_id', validateToken, usercontroller.getUserById);
+
+router.get('/get_user/:id', validateToken, usercontroller.getuser);
+
+router.delete('/delete_user/:id', validateToken, usercontroller.deleteuser);
 
 
 
