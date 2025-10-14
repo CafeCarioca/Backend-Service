@@ -9,6 +9,8 @@ const validateToken = require('../middlewares/authMiddleware');
 
 router.get('/', productController.getAllProducts);
 
+router.get('/search', productController.searchProducts); // ⚠️ Debe ir ANTES de /:id
+
 router.get('/:id', productController.getProductById);
 
 router.get('/name/:name', productController.getProductByName);

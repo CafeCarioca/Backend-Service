@@ -150,3 +150,54 @@ exports.deleteProduct = async (req, res) => {
     res.status(500).json({ error: 'Error al desactivar el producto' });
   }
 };
+
+// Búsqueda de productos
+exports.searchProducts = async (req, res) => {
+  try {
+    const { q } = req.query; // query parameter: ?q=cafe
+
+    if (!q || q.trim() === '') {
+      return res.status(400).json({ error: 'Parámetro de búsqueda requerido' });
+    }
+
+    const searchTerm = `%${q.trim()}%`;
+
+    // Buscar en nombre, descripción, origen, sabores y categoría
+    const [products] = await db.query(
+      `SELECT * FROM products 
+       WHERE available = TRUE 
+       AND (
+         name LIKE ? 
+         OR description LIKE ? 
+         OR origin LIKE ? 
+         OR flavors LIKE ? 
+         OR category LIKE ?
+         OR toasted LIKE ?
+       )
+       ORDER BY 
+         CASE 
+           WHEN name LIKE ? THEN 1
+           WHEN description LIKE ? THEN 2
+           ELSE 3
+         END,
+         name ASC
+       LIMIT 50`,
+      [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]
+    );
+
+    // Agregar presentaciones a cada producto
+    const productData = await Promise.all(products.map(async (product) => {
+      const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [product.id]);
+      return { ...product, presentations };
+    }));
+
+    res.json({
+      query: q,
+      count: productData.length,
+      results: productData
+    });
+  } catch (error) {
+    console.error('Error en búsqueda de productos:', error);
+    res.status(500).json({ error: 'Error al buscar productos' });
+  }
+};
