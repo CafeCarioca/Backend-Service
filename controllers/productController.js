@@ -3,7 +3,7 @@ const db = require('../models/db');
 // Obtener todos los productos con presentaciones
 exports.getAllProducts = async (req, res) => {
   try {
-    const [products] = await db.query('SELECT * FROM products');
+    const [products] = await db.query('SELECT * FROM products ORDER BY display_order ASC, id ASC');
 
     const productData = await Promise.all(products.map(async (product) => {
       const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [product.id]);
@@ -52,14 +52,18 @@ exports.getProductByName = async (req, res) => {
 
 // Crear un nuevo producto con presentaciones
 exports.createProduct = async (req, res) => {
-  const { name, description, category, price, toasted, origin, flavors, image_url, secondary_image_url, presentations = [] } = req.body;
+  const { name, description, category, price, toasted, origin, flavors, image_url, secondary_image_url, presentations = [], display_order } = req.body;
 
   try {
+    // Convertir strings vacíos a NULL para campos numéricos
+    const finalPrice = price === '' || price === null || price === undefined ? null : price;
+    const finalDisplayOrder = display_order === '' || display_order === null || display_order === undefined ? 999 : display_order;
+
     const [result] = await db.query(
       `INSERT INTO products 
-       (name, description, category, price, toasted, origin, flavors, available, image_url, secondary_image_url) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)`,
-      [name, description, category, price, toasted, origin, flavors, image_url, secondary_image_url]
+       (name, description, category, price, toasted, origin, flavors, available, image_url, secondary_image_url, display_order) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?)`,
+      [name, description, category, finalPrice, toasted, origin, flavors, image_url, secondary_image_url, finalDisplayOrder]
     );
 
     const productId = result.insertId;
@@ -180,6 +184,7 @@ exports.searchProducts = async (req, res) => {
            WHEN description LIKE ? THEN 2
            ELSE 3
          END,
+         display_order ASC,
          name ASC
        LIMIT 50`,
       [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]
