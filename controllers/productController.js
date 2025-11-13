@@ -1,13 +1,74 @@
 const db = require('../models/db');
 
-// Obtener todos los productos con presentaciones
+// Función helper para calcular el descuento activo de un producto
+const getActiveDiscount = async (productId) => {
+  const [discounts] = await db.query(`
+    SELECT d.*
+    FROM discounts d
+    INNER JOIN product_discounts pd ON d.id = pd.discount_id
+    WHERE pd.product_id = ?
+    AND d.is_active = TRUE
+    AND (d.start_date IS NULL OR d.start_date <= CURDATE())
+    AND (d.end_date IS NULL OR d.end_date >= CURDATE())
+    ORDER BY d.discount_value DESC
+    LIMIT 1
+  `, [productId]);
+
+  return discounts.length > 0 ? discounts[0] : null;
+};
+
+// Función helper para calcular precio con descuento
+const calculateDiscountedPrice = (originalPrice, discount) => {
+  if (!discount || !originalPrice) return originalPrice;
+
+  if (discount.discount_type === 'percentage') {
+    return originalPrice * (1 - discount.discount_value / 100);
+  } else if (discount.discount_type === 'fixed_amount') {
+    return Math.max(0, originalPrice - discount.discount_value);
+  }
+
+  return originalPrice;
+};
+
+// Función helper para agregar información de descuento a un producto
+const addDiscountInfo = async (product) => {
+  const discount = await getActiveDiscount(product.id);
+  
+  if (discount) {
+    const originalPrice = product.price;
+    const finalPrice = calculateDiscountedPrice(originalPrice, discount);
+    
+    return {
+      ...product,
+      original_price: originalPrice,
+      discount: {
+        id: discount.id,
+        name: discount.name,
+        type: discount.discount_type,
+        value: discount.discount_value,
+        start_date: discount.start_date,
+        end_date: discount.end_date
+      },
+      discounted_price: finalPrice,
+      has_discount: true
+    };
+  }
+
+  return {
+    ...product,
+    has_discount: false
+  };
+};
+
+// Obtener todos los productos con presentaciones y descuentos
 exports.getAllProducts = async (req, res) => {
   try {
     const [products] = await db.query('SELECT * FROM products ORDER BY display_order ASC, id ASC');
 
     const productData = await Promise.all(products.map(async (product) => {
       const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [product.id]);
-      return { ...product, presentations };
+      const productWithDiscount = await addDiscountInfo(product);
+      return { ...productWithDiscount, presentations };
     }));
 
     res.json(productData);
@@ -25,8 +86,9 @@ exports.getProductById = async (req, res) => {
     if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
 
     const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [id]);
+    const productWithDiscount = await addDiscountInfo(productRows[0]);
 
-    res.json({ ...productRows[0], presentations });
+    res.json({ ...productWithDiscount, presentations });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener el producto' });
@@ -41,8 +103,9 @@ exports.getProductByName = async (req, res) => {
     if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
 
     const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [productRows[0].id]);
+    const productWithDiscount = await addDiscountInfo(productRows[0]);
 
-    res.json({ ...productRows[0], presentations });
+    res.json({ ...productWithDiscount, presentations });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener el producto' });
@@ -193,7 +256,8 @@ exports.searchProducts = async (req, res) => {
     // Agregar presentaciones a cada producto
     const productData = await Promise.all(products.map(async (product) => {
       const [presentations] = await db.query('SELECT * FROM presentations WHERE product_id = ?', [product.id]);
-      return { ...product, presentations };
+      const productWithDiscount = await addDiscountInfo(product);
+      return { ...productWithDiscount, presentations };
     }));
 
     res.json({
