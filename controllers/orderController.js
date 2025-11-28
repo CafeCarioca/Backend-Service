@@ -113,6 +113,27 @@ exports.changeOrderStatusByExternalReference = async (req, res) => {
       return res.status(500).json({ message: 'Failed to change order status' });
     }
 
+    // Si la orden tiene un cupón aplicado, incrementar su uso
+    // Esto es opcional y no debe afectar el flujo principal de pago
+    try {
+      const [orderCoupons] = await connection.execute(
+        'SELECT coupon_id FROM order_coupons WHERE order_id = ?',
+        [orderId]
+      );
+
+      if (orderCoupons.length > 0) {
+        const couponId = orderCoupons[0].coupon_id;
+        await connection.execute(
+          'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ?',
+          [couponId]
+        );
+        console.log(`✅ Cupón ${couponId} incrementado. Orden ${orderId} pagada.`);
+      }
+    } catch (couponError) {
+      // Si falla el incremento del cupón, solo logueamos pero no afectamos el pago
+      console.warn(`⚠️ Error al incrementar cupón para orden ${orderId}:`, couponError.message);
+    }
+
     // Devolver respuesta exitosa
     res.status(200).json({ message: 'Order status updated to "Pagado"', orderId });
   } catch (error) {
@@ -127,7 +148,7 @@ exports.createOrder = async (req, res) => {
   const connection = await pool.getConnection();
 
   const { order } = req.body;
-  const { userDetails, products, external_reference } = order;
+  const { userDetails, products, external_reference, coupon } = order;
 
   // Usamos userDetails.deliveryType para obtener el tipo de envío
   const shippingType = userDetails.deliveryType;
@@ -196,7 +217,13 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    const total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
+    let total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
+    
+    // Si hay un cupón, restar el descuento del total
+    if (coupon && coupon.discountAmount) {
+      total = Math.max(0, total - coupon.discountAmount);
+      console.log(`💰 Total con cupón: $${total} (descuento: $${coupon.discountAmount})`);
+    }
 
     // Insertar la orden con el tipo de envío y address_id (NULL si es takeaway)
     const [orderResult] = await connection.execute(
@@ -222,6 +249,20 @@ exports.createOrder = async (req, res) => {
         'INSERT INTO order_items (order_id, product_id, quantity, price, grams, grind) VALUES (?, ?, ?, ?, ?, ?)',
         [orderId, productId, product.quantity, product.price, product.grams, product.grind]
       );
+    }
+
+    // Si se aplicó un cupón, guardarlo en order_coupons (opcional)
+    if (coupon && coupon.id && coupon.discountAmount) {
+      try {
+        await connection.execute(
+          'INSERT INTO order_coupons (order_id, coupon_id, discount_applied) VALUES (?, ?, ?)',
+          [orderId, coupon.id, coupon.discountAmount]
+        );
+        console.log(`✅ Cupón ${coupon.id} registrado en orden ${orderId}`);
+      } catch (couponError) {
+        // Si falla guardar el cupón, solo logueamos pero no afectamos la creación de la orden
+        console.warn(`⚠️ Error al registrar cupón en orden ${orderId}:`, couponError.message);
+      }
     }
 
     connection.release();

@@ -1,18 +1,31 @@
 const db = require('../models/db');
 
 // Función helper para calcular el descuento activo de un producto
-const getActiveDiscount = async (productId) => {
-  const [discounts] = await db.query(`
+// deliveryType: 'delivery', 'takeaway', o null (devuelve todos los descuentos activos)
+const getActiveDiscount = async (productId, deliveryType = null) => {
+  let query = `
     SELECT d.*
     FROM discounts d
     INNER JOIN product_discounts pd ON d.id = pd.discount_id
     WHERE pd.product_id = ?
     AND d.is_active = TRUE
     AND (d.start_date IS NULL OR d.start_date <= CURDATE())
-    AND (d.end_date IS NULL OR d.end_date >= CURDATE())
+    AND (d.end_date IS NULL OR d.end_date >= CURDATE())`;
+  
+  const params = [productId];
+  
+  // Si se especifica deliveryType, filtrar descuentos
+  if (deliveryType) {
+    query += ` AND (d.delivery_type = 'both' OR d.delivery_type = ?)`;
+    params.push(deliveryType);
+  }
+  
+  query += `
     ORDER BY d.discount_value DESC
     LIMIT 1
-  `, [productId]);
+  `;
+
+  const [discounts] = await db.query(query, params);
 
   return discounts.length > 0 ? discounts[0] : null;
 };
@@ -31,8 +44,9 @@ const calculateDiscountedPrice = (originalPrice, discount) => {
 };
 
 // Función helper para agregar información de descuento a un producto
-const addDiscountInfo = async (product) => {
-  const discount = await getActiveDiscount(product.id);
+// deliveryType: 'delivery', 'takeaway', o null
+const addDiscountInfo = async (product, deliveryType = null) => {
+  const discount = await getActiveDiscount(product.id, deliveryType);
   
   if (discount) {
     const originalPrice = product.price;
@@ -47,7 +61,8 @@ const addDiscountInfo = async (product) => {
         type: discount.discount_type,
         value: discount.discount_value,
         start_date: discount.start_date,
-        end_date: discount.end_date
+        end_date: discount.end_date,
+        delivery_type: discount.delivery_type
       },
       discounted_price: finalPrice,
       has_discount: true

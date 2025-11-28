@@ -5,11 +5,22 @@ const getAllDiscounts = async (req, res) => {
     try {
         const [discounts] = await db.query(`
             SELECT 
-                d.*,
+                d.id,
+                d.name,
+                d.description,
+                d.discount_type,
+                d.discount_value,
+                d.is_active,
+                d.delivery_type,
+                d.start_date,
+                d.end_date,
+                d.created_at,
+                d.updated_at,
                 COUNT(pd.product_id) as product_count
             FROM discounts d
             LEFT JOIN product_discounts pd ON d.id = pd.discount_id
-            GROUP BY d.id
+            GROUP BY d.id, d.name, d.description, d.discount_type, d.discount_value, 
+                     d.is_active, d.delivery_type, d.start_date, d.end_date, d.created_at, d.updated_at
             ORDER BY d.created_at DESC
         `);
         res.json(discounts);
@@ -54,6 +65,7 @@ const createDiscount = async (req, res) => {
         discount_type,
         discount_value,
         is_active = true,
+        delivery_type = 'both',
         start_date = null,
         end_date = null,
         product_ids = []
@@ -68,6 +80,10 @@ const createDiscount = async (req, res) => {
         return res.status(400).json({ message: 'discount_type debe ser "percentage" o "fixed_amount"' });
     }
 
+    if (!['both', 'delivery', 'takeaway'].includes(delivery_type)) {
+        return res.status(400).json({ message: 'delivery_type debe ser "both", "delivery" o "takeaway"' });
+    }
+
     if (discount_value <= 0) {
         return res.status(400).json({ message: 'discount_value debe ser mayor a 0' });
     }
@@ -75,9 +91,9 @@ const createDiscount = async (req, res) => {
     try {
         // Insertar descuento
         const [result] = await db.query(
-            `INSERT INTO discounts (name, description, discount_type, discount_value, is_active, start_date, end_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [name, description, discount_type, discount_value, is_active, start_date, end_date]
+            `INSERT INTO discounts (name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date]
         );
 
         const discountId = result.insertId;
@@ -111,6 +127,7 @@ const updateDiscount = async (req, res) => {
         discount_type,
         discount_value,
         is_active,
+        delivery_type,
         start_date,
         end_date
     } = req.body;
@@ -151,6 +168,13 @@ const updateDiscount = async (req, res) => {
         if (is_active !== undefined) {
             updates.push('is_active = ?');
             values.push(is_active);
+        }
+        if (delivery_type !== undefined) {
+            if (!['both', 'delivery', 'takeaway'].includes(delivery_type)) {
+                return res.status(400).json({ message: 'delivery_type debe ser "both", "delivery" o "takeaway"' });
+            }
+            updates.push('delivery_type = ?');
+            values.push(delivery_type);
         }
         if (start_date !== undefined) {
             updates.push('start_date = ?');

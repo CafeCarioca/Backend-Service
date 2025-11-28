@@ -22,6 +22,7 @@ const userRoute = require('./routes/users');
 const apiGoogleRoute = require('./routes/apiGoogle.js');
 const dashboardRoute = require('./routes/dashboard');
 const discountsRoute = require('./routes/discounts');
+const couponsRoute = require('./routes/coupons');
 
 
 app.use(bodyParser.json());
@@ -34,6 +35,7 @@ app.use('/emails', emailRoute);
 app.use('/users', userRoute);
 app.use('/dashboard', dashboardRoute);
 app.use('/discounts', discountsRoute);
+app.use('/coupons', couponsRoute);
 
 // Route API Google Reviews
 
