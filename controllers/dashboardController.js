@@ -3,9 +3,9 @@ const db = require('../models/db');
 // Obtener estadísticas principales
 exports.getStats = async (req, res) => {
     try {
-        // Mes actual
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
+        // Permitir filtrar por mes/año específico o usar el actual por defecto
+        const currentMonth = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const currentYear = parseInt(req.query.year) || new Date().getFullYear();
         const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
         const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
@@ -13,7 +13,7 @@ exports.getStats = async (req, res) => {
         const [currentRevenue] = await db.query(
             `SELECT COALESCE(SUM(total), 0) as total 
              FROM orders 
-             WHERE MONTH(order_date) = ? AND YEAR(order_date) = ? AND status != 'cancelled'`,
+             WHERE MONTH(order_date) = ? AND YEAR(order_date) = ? AND status != 'No Pagado'`,
             [currentMonth, currentYear]
         );
 
@@ -21,7 +21,7 @@ exports.getStats = async (req, res) => {
         const [lastRevenue] = await db.query(
             `SELECT COALESCE(SUM(total), 0) as total 
              FROM orders 
-             WHERE MONTH(order_date) = ? AND YEAR(order_date) = ? AND status != 'cancelled'`,
+             WHERE MONTH(order_date) = ? AND YEAR(order_date) = ? AND status != 'No Pagado'`,
             [lastMonth, lastMonthYear]
         );
 
@@ -74,7 +74,7 @@ exports.getSalesByMonth = async (req, res) => {
                 MONTH(order_date) as month,
                 COALESCE(SUM(total), 0) as ventas
              FROM orders
-             WHERE YEAR(order_date) = ? AND status != 'cancelled'
+             WHERE YEAR(order_date) = ? AND status != 'No Pagado'
              GROUP BY MONTH(order_date)
              ORDER BY MONTH(order_date)`,
             [currentYear]
@@ -150,8 +150,8 @@ exports.getRecentOrders = async (req, res) => {
 exports.getTopProducts = async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 5;
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
+        const currentMonth = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const currentYear = parseInt(req.query.year) || new Date().getFullYear();
         
         const [products] = await db.query(
             `SELECT 
@@ -165,7 +165,7 @@ exports.getTopProducts = async (req, res) => {
              JOIN products p ON oi.product_id = p.id
              WHERE MONTH(o.order_date) = ? 
                AND YEAR(o.order_date) = ?
-               AND o.status != 'cancelled'
+               AND o.status != 'No Pagado'
              GROUP BY p.id, p.name
              ORDER BY total_quantity DESC
              LIMIT ?`,
@@ -176,5 +176,116 @@ exports.getTopProducts = async (req, res) => {
     } catch (error) {
         console.error('Error al obtener productos más vendidos:', error);
         res.status(500).json({ error: 'Error al obtener productos más vendidos' });
+    }
+};
+
+// Obtener desglose por tipo de envío
+exports.getShippingBreakdown = async (req, res) => {
+    try {
+        const currentMonth = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const currentYear = parseInt(req.query.year) || new Date().getFullYear();
+        
+        const [breakdown] = await db.query(
+            `SELECT 
+                shipping_type,
+                COUNT(*) as count,
+                COALESCE(SUM(total), 0) as revenue
+             FROM orders
+             WHERE MONTH(order_date) = ? 
+               AND YEAR(order_date) = ?
+               AND status != 'No Pagado'
+             GROUP BY shipping_type`,
+            [currentMonth, currentYear]
+        );
+
+        res.json(breakdown);
+    } catch (error) {
+        console.error('Error al obtener desglose de envíos:', error);
+        res.status(500).json({ error: 'Error al obtener desglose de envíos' });
+    }
+};
+
+// Obtener ticket promedio
+exports.getAverageTicket = async (req, res) => {
+    try {
+        const currentMonth = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const currentYear = parseInt(req.query.year) || new Date().getFullYear();
+        
+        const [result] = await db.query(
+            `SELECT 
+                COUNT(*) as total_orders,
+                COALESCE(SUM(total), 0) as total_revenue,
+                COALESCE(AVG(total), 0) as average_ticket
+             FROM orders
+             WHERE MONTH(order_date) = ? 
+               AND YEAR(order_date) = ?
+               AND status != 'No Pagado'`,
+            [currentMonth, currentYear]
+        );
+
+        res.json(result[0]);
+    } catch (error) {
+        console.error('Error al obtener ticket promedio:', error);
+        res.status(500).json({ error: 'Error al obtener ticket promedio' });
+    }
+};
+
+// Obtener top clientes del mes
+exports.getTopCustomers = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 5;
+        const currentMonth = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const currentYear = parseInt(req.query.year) || new Date().getFullYear();
+        
+        const [customers] = await db.query(
+            `SELECT 
+                u.id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                COUNT(o.id) as order_count,
+                COALESCE(SUM(o.total), 0) as total_spent
+             FROM users u
+             JOIN orders o ON u.id = o.user_id
+             WHERE MONTH(o.order_date) = ? 
+               AND YEAR(o.order_date) = ?
+               AND o.status != 'No Pagado'
+             GROUP BY u.id, u.first_name, u.last_name, u.email
+             ORDER BY total_spent DESC
+             LIMIT ?`,
+            [currentMonth, currentYear, limit]
+        );
+
+        res.json(customers);
+    } catch (error) {
+        console.error('Error al obtener top clientes:', error);
+        res.status(500).json({ error: 'Error al obtener top clientes' });
+    }
+};
+
+// Obtener distribución de ventas por hora del día
+exports.getSalesByHour = async (req, res) => {
+    try {
+        const currentMonth = parseInt(req.query.month) || new Date().getMonth() + 1;
+        const currentYear = parseInt(req.query.year) || new Date().getFullYear();
+        
+        const [sales] = await db.query(
+            `SELECT 
+                HOUR(order_date) as hour,
+                COUNT(*) as order_count,
+                COALESCE(SUM(total), 0) as revenue
+             FROM orders
+             WHERE MONTH(order_date) = ? 
+               AND YEAR(order_date) = ?
+               AND status != 'No Pagado'
+             GROUP BY HOUR(order_date)
+             ORDER BY hour`,
+            [currentMonth, currentYear]
+        );
+
+        res.json(sales);
+    } catch (error) {
+        console.error('Error al obtener ventas por hora:', error);
+        res.status(500).json({ error: 'Error al obtener ventas por hora' });
     }
 };

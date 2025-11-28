@@ -148,10 +148,13 @@ exports.createOrder = async (req, res) => {
   const connection = await pool.getConnection();
 
   const { order } = req.body;
-  const { userDetails, products, external_reference, coupon } = order;
+  const { userDetails, products, external_reference, coupon, shippingCost } = order;
 
   // Usamos userDetails.deliveryType para obtener el tipo de envío
   const shippingType = userDetails.deliveryType;
+
+  // Usar el shippingCost que viene del frontend
+  const finalShippingCost = shippingCost || 0;
 
   try {
     const [users] = await connection.execute(
@@ -218,12 +221,19 @@ exports.createOrder = async (req, res) => {
     }
 
     let total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
+    console.log(`🛒 Subtotal productos: $${total}`);
     
     // Si hay un cupón, restar el descuento del total
     if (coupon && coupon.discountAmount) {
       total = Math.max(0, total - coupon.discountAmount);
       console.log(`💰 Total con cupón: $${total} (descuento: $${coupon.discountAmount})`);
     }
+
+    // Agregar el costo de envío al total
+    const subtotalBeforeShipping = total;
+    total += finalShippingCost;
+    console.log(`📦 Total final: $${total} (subtotal: $${subtotalBeforeShipping}, envío: $${finalShippingCost})`);
+    console.log(`📋 Tipo de envío: ${shippingType}`);
 
     // Insertar la orden con el tipo de envío y address_id (NULL si es takeaway)
     const [orderResult] = await connection.execute(
