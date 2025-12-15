@@ -30,6 +30,9 @@ exports.createPreference = async (req, res) => {
       },
       auto_return: 'approved',
       notification_url: `https://cafecarioca.com.uy/api/payments/webhook`,
+      payment_methods: {
+        installments: 12
+      }
     };
 
     console.log('PreferenceBody:', preferenceBody);

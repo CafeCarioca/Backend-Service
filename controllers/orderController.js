@@ -235,10 +235,22 @@ exports.createOrder = async (req, res) => {
     console.log(`📦 Total final: $${total} (subtotal: $${subtotalBeforeShipping}, envío: $${finalShippingCost})`);
     console.log(`📋 Tipo de envío: ${shippingType}`);
 
-    // Insertar la orden con el tipo de envío y address_id (NULL si es takeaway)
+    // Calcular descuentos de productos
+    let productDiscountTotal = 0;
+    products.forEach(product => {
+      if (product.originalPrice && product.price) {
+        const itemDiscount = (parseFloat(product.originalPrice) - parseFloat(product.price)) * product.quantity;
+        productDiscountTotal += itemDiscount;
+      }
+    });
+
+    // Insertar la orden con el tipo de envío ye address_id (NULL si es takeaway)
+    const couponCode = coupon ? coupon.code : null;
+    const couponDiscount = coupon && coupon.discountAmount ? coupon.discountAmount : 0;
+
     const [orderResult] = await connection.execute(
-      'INSERT INTO orders (user_id, address_id, status, total, external_reference, shipping_type) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, addressId, 'No Pagado', total, external_reference, shippingType]
+      'INSERT INTO orders (user_id, address_id, status, total, external_reference, shipping_type, shipping_cost, coupon_code, coupon_discount, product_discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, addressId, 'No Pagado', total, external_reference, shippingType, finalShippingCost, couponCode, couponDiscount, productDiscountTotal]
     );
 
     const orderId = orderResult.insertId;
