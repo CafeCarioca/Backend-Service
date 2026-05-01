@@ -1,4 +1,5 @@
 const db = require('../models/db');
+const logger = require('../utils/logger');
 
 // Función helper para calcular el descuento activo de un producto
 // deliveryType: 'delivery', 'takeaway', o null (devuelve todos los descuentos activos)
@@ -88,7 +89,7 @@ exports.getAllProducts = async (req, res) => {
 
     res.json(productData);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Error al obtener productos' });
   }
 };
@@ -105,7 +106,7 @@ exports.getProductById = async (req, res) => {
 
     res.json({ ...productWithDiscount, presentations });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Error al obtener el producto' });
   }
 };
@@ -122,7 +123,7 @@ exports.getProductByName = async (req, res) => {
 
     res.json({ ...productWithDiscount, presentations });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Error al obtener el producto' });
   }
 };
@@ -155,7 +156,7 @@ exports.createProduct = async (req, res) => {
 
     res.status(201).json({ id: productId, name, description, category, price, toasted, origin, flavors, available: true, image_url, secondary_image_url, presentations });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Error al crear el producto' });
   }
 };
@@ -210,7 +211,7 @@ exports.updateProduct = async (req, res) => {
 
     res.json(updatedProduct);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Error al actualizar el producto' });
   }
 };
@@ -228,7 +229,7 @@ exports.deleteProduct = async (req, res) => {
 
     res.json({ message: 'Producto marcado como no disponible' });
   } catch (error) {
-    console.error('Error al desactivar el producto:', error);
+    logger.error('Error al desactivar el producto:', error);
     res.status(500).json({ error: 'Error al desactivar el producto' });
   }
 };
@@ -281,7 +282,7 @@ exports.searchProducts = async (req, res) => {
       results: productData
     });
   } catch (error) {
-    console.error('Error en búsqueda de productos:', error);
+    logger.error('Error en búsqueda de productos:', error);
     res.status(500).json({ error: 'Error al buscar productos' });
   }
 };

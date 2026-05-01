@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 // Paleta de colores
@@ -91,10 +92,10 @@ exports.sendOrderConfirmationEmail = async (orderData) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent: ' + info.response);
+    logger.log('Email sent: ' + info.response);
     return { success: true, message: 'Email sent successfully' };
   } catch (error) {
-    console.error('Error sending email: ', error);
+    logger.error('Error sending email: ', error);
     throw new Error('Failed to send email');
   }
 };

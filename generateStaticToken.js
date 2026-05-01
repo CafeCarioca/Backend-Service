@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const logger = require("./utils/logger");
 require("dotenv").config(); // Carga variables de entorno
 
 // Define el payload del token
@@ -12,12 +13,12 @@ const payload = {
 const secretKey = process.env.JWT_SECRET;
 
 if (!secretKey) {
-  console.error("Falta la clave JWT_SECRET en el archivo .env");
+  logger.error("Falta la clave JWT_SECRET en el archivo .env");
   process.exit(1);
 }
 
 // Genera el token (sin expiración)
 const token = jwt.sign(payload, secretKey);
 
-console.log("Tu JWT estático es:");
-console.log(token);
+logger.log("Tu JWT estático es:");
+logger.log(token);

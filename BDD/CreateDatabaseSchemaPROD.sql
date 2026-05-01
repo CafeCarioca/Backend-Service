@@ -38,6 +38,21 @@ CREATE TABLE IF NOT EXISTS addresses (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- Tabla de suscriptores al newsletter
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    source VARCHAR(50) DEFAULT 'footer',
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_active (is_active),
+    INDEX idx_created_at (created_at)
+);
+
 -- Tabla de productos con categorías, sabores y origen
 CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -138,6 +153,7 @@ CREATE TABLE IF NOT EXISTS discounts (
     discount_type ENUM('percentage', 'fixed_amount') NOT NULL,
     discount_value DECIMAL(10,2) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    delivery_type ENUM('both','delivery','takeaway') NOT NULL DEFAULT 'both',
     start_date DATE NULL,
     end_date DATE NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

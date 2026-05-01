@@ -1,4 +1,5 @@
 const db = require('../models/db');
+const logger = require('../utils/logger');
 
 // Obtener estadísticas principales
 exports.getStats = async (req, res) => {
@@ -59,7 +60,7 @@ exports.getStats = async (req, res) => {
             ordersChange: parseFloat(ordersChange)
         });
     } catch (error) {
-        console.error('Error al obtener estadísticas:', error);
+        logger.error('Error al obtener estadísticas:', error);
         res.status(500).json({ error: 'Error al obtener estadísticas' });
     }
 };
@@ -95,7 +96,7 @@ exports.getSalesByMonth = async (req, res) => {
 
         res.json(salesByMonth);
     } catch (error) {
-        console.error('Error al obtener ventas por mes:', error);
+        logger.error('Error al obtener ventas por mes:', error);
         res.status(500).json({ error: 'Error al obtener ventas por mes' });
     }
 };
@@ -115,7 +116,7 @@ exports.getRecentUsers = async (req, res) => {
 
         res.json(users);
     } catch (error) {
-        console.error('Error al obtener usuarios recientes:', error);
+        logger.error('Error al obtener usuarios recientes:', error);
         res.status(500).json({ error: 'Error al obtener usuarios recientes' });
     }
 };
@@ -141,7 +142,7 @@ exports.getRecentOrders = async (req, res) => {
 
         res.json(orders);
     } catch (error) {
-        console.error('Error al obtener órdenes recientes:', error);
+        logger.error('Error al obtener órdenes recientes:', error);
         res.status(500).json({ error: 'Error al obtener órdenes recientes' });
     }
 };
@@ -174,7 +175,7 @@ exports.getTopProducts = async (req, res) => {
 
         res.json(products);
     } catch (error) {
-        console.error('Error al obtener productos más vendidos:', error);
+        logger.error('Error al obtener productos más vendidos:', error);
         res.status(500).json({ error: 'Error al obtener productos más vendidos' });
     }
 };
@@ -200,7 +201,7 @@ exports.getShippingBreakdown = async (req, res) => {
 
         res.json(breakdown);
     } catch (error) {
-        console.error('Error al obtener desglose de envíos:', error);
+        logger.error('Error al obtener desglose de envíos:', error);
         res.status(500).json({ error: 'Error al obtener desglose de envíos' });
     }
 };
@@ -225,7 +226,7 @@ exports.getAverageTicket = async (req, res) => {
 
         res.json(result[0]);
     } catch (error) {
-        console.error('Error al obtener ticket promedio:', error);
+        logger.error('Error al obtener ticket promedio:', error);
         res.status(500).json({ error: 'Error al obtener ticket promedio' });
     }
 };
@@ -258,7 +259,7 @@ exports.getTopCustomers = async (req, res) => {
 
         res.json(customers);
     } catch (error) {
-        console.error('Error al obtener top clientes:', error);
+        logger.error('Error al obtener top clientes:', error);
         res.status(500).json({ error: 'Error al obtener top clientes' });
     }
 };
@@ -285,7 +286,7 @@ exports.getSalesByHour = async (req, res) => {
 
         res.json(sales);
     } catch (error) {
-        console.error('Error al obtener ventas por hora:', error);
+        logger.error('Error al obtener ventas por hora:', error);
         res.status(500).json({ error: 'Error al obtener ventas por hora' });
     }
 };

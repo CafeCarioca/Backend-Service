@@ -1,5 +1,6 @@
 const axios = require('axios');
 const nodemailer = require('nodemailer');
+const logger = require('../utils/logger');
 const orderservice = require('../Helpers/orderHelper');
 require('dotenv').config();
 
@@ -93,10 +94,10 @@ exports.sendOrderConfirmation = async (req, res) => {
       };
   
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent: ' + info.response);
+      logger.log('Email sent: ' + info.response);
       res.status(200).json({ message: 'Email sent successfully' });
     } catch (error) {
-      console.error('Error sending email: ', error);
+      logger.error('Error sending email: ', error);
       res.status(500).json({ message: 'Failed to send email', error: error.message });
     }
   };
@@ -174,11 +175,11 @@ exports.sendOrderConfirmation = async (req, res) => {
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent: ' + info.response);
+      logger.log('Email sent: ' + info.response);
       res.status(200).json({ message: 'Email sent successfully' });
     }
     catch (error) {
-      console.error('Error sending email: ', error);
+      logger.error('Error sending email: ', error);
       res.status(500).json({ message: 'Failed to send email', error: error.message });
     }
   }

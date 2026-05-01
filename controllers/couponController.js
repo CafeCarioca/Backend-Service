@@ -1,4 +1,5 @@
 const db = require('../models/db');
+const logger = require('../utils/logger');
 
 // Obtener todos los cupones
 const getAllCoupons = async (req, res) => {
@@ -27,7 +28,7 @@ const getAllCoupons = async (req, res) => {
     const [coupons] = await db.query(query);
     res.json(coupons);
   } catch (error) {
-    console.error('Error al obtener cupones:', error);
+    logger.error('Error al obtener cupones:', error);
     res.status(500).json({ error: 'Error al obtener cupones' });
   }
 };
@@ -65,7 +66,7 @@ const getCouponById = async (req, res) => {
     
     res.json(coupons[0]);
   } catch (error) {
-    console.error('Error al obtener cupón:', error);
+    logger.error('Error al obtener cupón:', error);
     res.status(500).json({ error: 'Error al obtener cupón' });
   }
 };
@@ -159,7 +160,7 @@ const validateCoupon = async (req, res) => {
       discountAmount: discountAmount
     });
   } catch (error) {
-    console.error('Error al validar cupón:', error);
+    logger.error('Error al validar cupón:', error);
     res.status(500).json({ error: 'Error al validar cupón' });
   }
 };
@@ -222,7 +223,7 @@ const createCoupon = async (req, res) => {
       couponId: result.insertId
     });
   } catch (error) {
-    console.error('Error al crear cupón:', error);
+    logger.error('Error al crear cupón:', error);
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'Ya existe un cupón con ese código' });
     }
@@ -321,7 +322,7 @@ const updateCoupon = async (req, res) => {
     
     res.json({ message: 'Cupón actualizado exitosamente' });
   } catch (error) {
-    console.error('Error al actualizar cupón:', error);
+    logger.error('Error al actualizar cupón:', error);
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'Ya existe un cupón con ese código' });
     }
@@ -343,7 +344,7 @@ const deleteCoupon = async (req, res) => {
     
     res.json({ message: 'Cupón eliminado exitosamente' });
   } catch (error) {
-    console.error('Error al eliminar cupón:', error);
+    logger.error('Error al eliminar cupón:', error);
     res.status(500).json({ error: 'Error al eliminar cupón' });
   }
 };

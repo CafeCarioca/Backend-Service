@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 const validateToken = (req, res, next) => {
@@ -13,7 +14,7 @@ const validateToken = (req, res, next) => {
     req.user = decoded; // Guardamos los datos del token en `req.user`
     next();
   } catch (err) {
-    console.error("Invalid token:", err.message);
+    logger.error("Invalid token:", err.message);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };

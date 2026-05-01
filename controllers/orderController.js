@@ -1,4 +1,5 @@
 const pool = require('../models/db');
+const logger = require('../utils/logger');
 
 
 
@@ -29,7 +30,7 @@ exports.deleteorder = async (req, res) => {
     res.status(200).json({ message: 'Order deleted successfully' });
   } catch (error) {
     await connection.rollback();
-    console.error('Error deleting order:', error);
+    logger.error('Error deleting order:', error);
     res.status(500).json({ message: error.message });
   } finally {
     connection.release();
@@ -52,7 +53,7 @@ exports.changeorderstatus = async (req, res) => {
 
     res.status(200).json({ message: 'Order status updated successfully' });
   } catch (error) {
-    console.error('Error changing order status:', error);
+    logger.error('Error changing order status:', error);
     res.status(500).json({ message: error.message });
   } finally {
     connection.release();
@@ -76,7 +77,7 @@ exports.getPaidOrders = async (req, res) => {
     // Devolver respuesta exitosa
     res.status(200).json({ orders });
   } catch (error) {
-    console.error('Error getting paid orders:', error);
+    logger.error('Error getting paid orders:', error);
     res.status(500).json({ message: error.message });
   } finally {
     connection.release();
@@ -127,17 +128,17 @@ exports.changeOrderStatusByExternalReference = async (req, res) => {
           'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = ?',
           [couponId]
         );
-        console.log(`✅ Cupón ${couponId} incrementado. Orden ${orderId} pagada.`);
+        logger.log(`✅ Cupón ${couponId} incrementado. Orden ${orderId} pagada.`);
       }
     } catch (couponError) {
       // Si falla el incremento del cupón, solo logueamos pero no afectamos el pago
-      console.warn(`⚠️ Error al incrementar cupón para orden ${orderId}:`, couponError.message);
+      logger.warn(`⚠️ Error al incrementar cupón para orden ${orderId}:`, couponError.message);
     }
 
     // Devolver respuesta exitosa
     res.status(200).json({ message: 'Order status updated to "Pagado"', orderId });
   } catch (error) {
-    console.error('Error changing order status:', error);
+    logger.error('Error changing order status:', error);
     res.status(500).json({ message: error.message });
   } finally {
     connection.release();
@@ -221,19 +222,19 @@ exports.createOrder = async (req, res) => {
     }
 
     let total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
-    console.log(`🛒 Subtotal productos: $${total}`);
+    logger.log(`🛒 Subtotal productos: $${total}`);
     
     // Si hay un cupón, restar el descuento del total
     if (coupon && coupon.discountAmount) {
       total = Math.max(0, total - coupon.discountAmount);
-      console.log(`💰 Total con cupón: $${total} (descuento: $${coupon.discountAmount})`);
+      logger.log(`💰 Total con cupón: $${total} (descuento: $${coupon.discountAmount})`);
     }
 
     // Agregar el costo de envío al total
     const subtotalBeforeShipping = total;
     total += finalShippingCost;
-    console.log(`📦 Total final: $${total} (subtotal: $${subtotalBeforeShipping}, envío: $${finalShippingCost})`);
-    console.log(`📋 Tipo de envío: ${shippingType}`);
+    logger.log(`📦 Total final: $${total} (subtotal: $${subtotalBeforeShipping}, envío: $${finalShippingCost})`);
+    logger.log(`📋 Tipo de envío: ${shippingType}`);
 
     // Calcular descuentos de productos
     let productDiscountTotal = 0;
@@ -280,10 +281,10 @@ exports.createOrder = async (req, res) => {
           'INSERT INTO order_coupons (order_id, coupon_id, discount_applied) VALUES (?, ?, ?)',
           [orderId, coupon.id, coupon.discountAmount]
         );
-        console.log(`✅ Cupón ${coupon.id} registrado en orden ${orderId}`);
+        logger.log(`✅ Cupón ${coupon.id} registrado en orden ${orderId}`);
       } catch (couponError) {
         // Si falla guardar el cupón, solo logueamos pero no afectamos la creación de la orden
-        console.warn(`⚠️ Error al registrar cupón en orden ${orderId}:`, couponError.message);
+        logger.warn(`⚠️ Error al registrar cupón en orden ${orderId}:`, couponError.message);
       }
     }
 
@@ -291,7 +292,7 @@ exports.createOrder = async (req, res) => {
 
     res.status(200).json({ message: 'Order created successfully', orderId });
   } catch (error) {
-    console.error('Error creating order:', error);
+    logger.error('Error creating order:', error);
     connection.release();
     res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
@@ -357,7 +358,7 @@ exports.getOrder = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting order:', error);
+    logger.error('Error getting order:', error);
     connection.release();
     res.status(500).json({ message: 'Failed to get order', error: error.message });
   }
@@ -384,7 +385,7 @@ exports.checkOrderStatus = async (req, res) => {
 
     res.status(200).json({ message: 'Order is not paid' });
   } catch (error) {
-    console.error('Error checking order status:', error);
+    logger.error('Error checking order status:', error);
     connection.release();
     res.status(500).json({ message: 'Failed to check order status', error: error.message });
   }
@@ -418,7 +419,7 @@ exports.getOrdersByDateRange = async (req, res) => {
 
     res.status(200).json({ orders });
   } catch (error) {
-    console.error('Error getting orders by date range:', error);
+    logger.error('Error getting orders by date range:', error);
     res.status(500).json({ message: 'Failed to get orders', error: error.message });
   } finally {
     connection.release();
@@ -448,7 +449,7 @@ exports.getLastOrders = async (req, res) => {
 
     res.status(200).json({ orders });
   } catch (error) {
-    console.error('Error getting last orders:', error);
+    logger.error('Error getting last orders:', error);
     res.status(500).json({ message: 'Failed to get last orders', error: error.message });
   } finally {
     connection.release();

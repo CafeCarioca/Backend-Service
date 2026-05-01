@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const logger = require('./utils/logger');
 const app = express();
 //const checkIP = require('./middlewares/checkIP');
 
@@ -23,6 +24,8 @@ const apiGoogleRoute = require('./routes/apiGoogle.js');
 const dashboardRoute = require('./routes/dashboard');
 const discountsRoute = require('./routes/discounts');
 const couponsRoute = require('./routes/coupons');
+const categoriesRoute = require('./routes/categories');
+const newsletterRoute = require('./routes/newsletter');
 
 
 app.use(bodyParser.json());
@@ -36,6 +39,8 @@ app.use('/users', userRoute);
 app.use('/dashboard', dashboardRoute);
 app.use('/discounts', discountsRoute);
 app.use('/coupons', couponsRoute);
+app.use('/categories', categoriesRoute);
+app.use('/newsletter', newsletterRoute);
 
 // Route API Google Reviews
 
@@ -46,5 +51,5 @@ app.use('/googleapi', apiGoogleRoute);
 const port = process.env.PORT || 3000; // You can use environment variables for port configuration
 
 app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+    logger.log(`Server is running on port ${port}`);
 });

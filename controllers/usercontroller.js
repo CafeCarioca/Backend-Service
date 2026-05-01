@@ -1,4 +1,5 @@
 const pool = require('../models/db');
+const logger = require('../utils/logger');
 
 exports.getusers = async (req, res) => {
   try {
@@ -8,7 +9,7 @@ exports.getusers = async (req, res) => {
     rows.forEach(user => delete user.password);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ message: 'Internal server error' });
   }
 }
@@ -42,7 +43,7 @@ exports.getuser = async (req, res) => {
       orders
     });
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ message: 'Internal server error' });
   }
 }
@@ -58,7 +59,7 @@ exports.deleteuser = async (req, res) => {
     }
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     res.status(500).json({ message: 'Internal server error' });
   }
 }

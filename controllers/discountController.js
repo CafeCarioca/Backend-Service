@@ -1,4 +1,5 @@
 const db = require('../models/db');
+const logger = require('../utils/logger');
 
 // Obtener todos los descuentos con información de productos asignados
 const getAllDiscounts = async (req, res) => {
@@ -25,7 +26,7 @@ const getAllDiscounts = async (req, res) => {
         `);
         res.json(discounts);
     } catch (error) {
-        console.error('Error al obtener descuentos:', error);
+        logger.error('Error al obtener descuentos:', error);
         res.status(500).json({ message: 'Error al obtener descuentos', error: error.message });
     }
 };
@@ -52,7 +53,7 @@ const getDiscountById = async (req, res) => {
             products
         });
     } catch (error) {
-        console.error('Error al obtener descuento:', error);
+        logger.error('Error al obtener descuento:', error);
         res.status(500).json({ message: 'Error al obtener descuento', error: error.message });
     }
 };
@@ -113,7 +114,7 @@ const createDiscount = async (req, res) => {
             product_count: product_ids.length
         });
     } catch (error) {
-        console.error('Error al crear descuento:', error);
+        logger.error('Error al crear descuento:', error);
         res.status(500).json({ message: 'Error al crear descuento', error: error.message });
     }
 };
@@ -197,7 +198,7 @@ const updateDiscount = async (req, res) => {
 
         res.json({ message: 'Descuento actualizado exitosamente' });
     } catch (error) {
-        console.error('Error al actualizar descuento:', error);
+        logger.error('Error al actualizar descuento:', error);
         res.status(500).json({ message: 'Error al actualizar descuento', error: error.message });
     }
 };
@@ -215,7 +216,7 @@ const deleteDiscount = async (req, res) => {
 
         res.json({ message: 'Descuento eliminado exitosamente' });
     } catch (error) {
-        console.error('Error al eliminar descuento:', error);
+        logger.error('Error al eliminar descuento:', error);
         res.status(500).json({ message: 'Error al eliminar descuento', error: error.message });
     }
 };
@@ -245,7 +246,7 @@ const addProductsToDiscount = async (req, res) => {
 
         res.json({ message: 'Productos agregados al descuento exitosamente' });
     } catch (error) {
-        console.error('Error al agregar productos:', error);
+        logger.error('Error al agregar productos:', error);
         res.status(500).json({ message: 'Error al agregar productos', error: error.message });
     }
 };
@@ -266,7 +267,7 @@ const removeProductFromDiscount = async (req, res) => {
 
         res.json({ message: 'Producto removido del descuento exitosamente' });
     } catch (error) {
-        console.error('Error al remover producto:', error);
+        logger.error('Error al remover producto:', error);
         res.status(500).json({ message: 'Error al remover producto', error: error.message });
     }
 };
@@ -286,7 +287,7 @@ const getProductsByDiscount = async (req, res) => {
 
         res.json(products);
     } catch (error) {
-        console.error('Error al obtener productos:', error);
+        logger.error('Error al obtener productos:', error);
         res.status(500).json({ message: 'Error al obtener productos', error: error.message });
     }
 };
@@ -317,7 +318,7 @@ const getActiveDiscountForProduct = async (req, res) => {
             discount: discounts[0]
         });
     } catch (error) {
-        console.error('Error al obtener descuento del producto:', error);
+        logger.error('Error al obtener descuento del producto:', error);
         res.status(500).json({ message: 'Error al obtener descuento del producto', error: error.message });
     }
 };
