@@ -77,8 +77,8 @@ const createDiscount = async (req, res) => {
         return res.status(400).json({ message: 'Faltan campos obligatorios: name, discount_type, discount_value' });
     }
 
-    if (!['percentage', 'fixed_amount'].includes(discount_type)) {
-        return res.status(400).json({ message: 'discount_type debe ser "percentage" o "fixed_amount"' });
+    if (!['percentage', 'fixed_amount', 'bogo'].includes(discount_type)) {
+        return res.status(400).json({ message: 'discount_type debe ser "percentage", "fixed_amount" o "bogo"' });
     }
 
     if (!['both', 'delivery', 'takeaway'].includes(delivery_type)) {
@@ -153,8 +153,8 @@ const updateDiscount = async (req, res) => {
             values.push(description);
         }
         if (discount_type !== undefined) {
-            if (!['percentage', 'fixed_amount'].includes(discount_type)) {
-                return res.status(400).json({ message: 'discount_type debe ser "percentage" o "fixed_amount"' });
+            if (!['percentage', 'fixed_amount', 'bogo'].includes(discount_type)) {
+                return res.status(400).json({ message: 'discount_type debe ser "percentage", "fixed_amount" o "bogo"' });
             }
             updates.push('discount_type = ?');
             values.push(discount_type);

@@ -39,6 +39,8 @@ const calculateDiscountedPrice = (originalPrice, discount) => {
     return originalPrice * (1 - discount.discount_value / 100);
   } else if (discount.discount_type === 'fixed_amount') {
     return Math.max(0, originalPrice - discount.discount_value);
+  } else if (discount.discount_type === 'bogo') {
+    return originalPrice;
   }
 
   return originalPrice;

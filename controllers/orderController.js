@@ -221,7 +221,17 @@ exports.createOrder = async (req, res) => {
       }
     }
 
+    const getBogoDiscount = (product) => {
+      if (!product.discount || product.discount.type !== 'bogo') return 0;
+      const quantity = Number(product.quantity) || 0;
+      const unitPrice = Number(product.price) || 0;
+      return Math.floor(quantity / 2) * unitPrice;
+    };
+
+    const bogoDiscountTotal = products.reduce((sum, product) => sum + getBogoDiscount(product), 0);
+
     let total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
+    total = Math.max(0, total - bogoDiscountTotal);
     logger.log(`🛒 Subtotal productos: $${total}`);
     
     // Si hay un cupón, restar el descuento del total
@@ -239,7 +249,9 @@ exports.createOrder = async (req, res) => {
     // Calcular descuentos de productos
     let productDiscountTotal = 0;
     products.forEach(product => {
-      if (product.originalPrice && product.price) {
+      if (product.discount && product.discount.type === 'bogo') {
+        productDiscountTotal += getBogoDiscount(product);
+      } else if (product.originalPrice && product.price) {
         const itemDiscount = (parseFloat(product.originalPrice) - parseFloat(product.price)) * product.quantity;
         productDiscountTotal += itemDiscount;
       }

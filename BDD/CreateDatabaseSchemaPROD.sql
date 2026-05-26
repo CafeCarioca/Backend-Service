@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS discounts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    discount_type ENUM('percentage', 'fixed_amount') NOT NULL,
+    discount_type ENUM('percentage', 'fixed_amount', 'bogo') NOT NULL,
     discount_value DECIMAL(10,2) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     delivery_type ENUM('both','delivery','takeaway') NOT NULL DEFAULT 'both',
