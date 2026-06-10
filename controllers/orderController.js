@@ -158,6 +158,10 @@ exports.createOrder = async (req, res) => {
   const finalShippingCost = shippingCost || 0;
 
   try {
+    // Transacción: si falla cualquier paso (usuario, dirección, orden, items,
+    // cupón) se revierte todo y no quedan órdenes a medio crear.
+    await connection.beginTransaction();
+
     const [users] = await connection.execute(
       'SELECT id FROM users WHERE email = ?',
       [userDetails.email]
@@ -300,11 +304,17 @@ exports.createOrder = async (req, res) => {
       }
     }
 
+    await connection.commit();
     connection.release();
 
     res.status(200).json({ message: 'Order created successfully', orderId });
   } catch (error) {
     logger.error('Error creating order:', error);
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      logger.error('Error rolling back order transaction:', rollbackError);
+    }
     connection.release();
     res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
