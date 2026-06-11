@@ -53,6 +53,11 @@ const discountedUnitPrice = (unitPrice, discount) => {
 };
 
 const getActiveDiscountForProduct = async (connection, productId, deliveryType) => {
+  // ORDER BY discount_value DESC para que coincida con el descuento que
+  // muestra la tienda (productController usa el mismo criterio): si un
+  // producto tuviera 2+ descuentos activos, el precio cobrado es el mismo
+  // que el exhibido. El filtro de delivery_type evita aplicar un descuento
+  // delivery-only a un retiro en tienda.
   const [rows] = await connection.execute(
     `SELECT d.id, d.discount_type, d.discount_value, d.delivery_type
      FROM discounts d
@@ -62,7 +67,7 @@ const getActiveDiscountForProduct = async (connection, productId, deliveryType) 
        AND (d.start_date IS NULL OR d.start_date <= CURDATE())
        AND (d.end_date IS NULL OR d.end_date >= CURDATE())
        AND (d.delivery_type = 'both' OR d.delivery_type = ?)
-     ORDER BY d.id DESC
+     ORDER BY d.discount_value DESC
      LIMIT 1`,
     [productId, deliveryType || 'delivery']
   );

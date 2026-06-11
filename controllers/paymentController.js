@@ -32,7 +32,11 @@ const verifyWebhookSignature = (req, dataId) => {
   );
   if (!parts.ts || !parts.v1) return false;
 
-  const manifest = `id:${String(dataId).toLowerCase()};request-id:${requestId};ts:${parts.ts};`;
+  // El segmento request-id se omite si MP no envió el header x-request-id
+  // (interpolar "undefined" haría fallar la verificación de firmas legítimas).
+  let manifest = `id:${String(dataId).toLowerCase()};`;
+  if (requestId) manifest += `request-id:${requestId};`;
+  manifest += `ts:${parts.ts};`;
   const expected = crypto
     .createHmac('sha256', secret)
     .update(manifest)
@@ -71,14 +75,27 @@ exports.createPreference = async (req, res) => {
     // Antes se usaban los items que mandaba el navegador: un cliente
     // malicioso podía pagar cualquier monto. Ahora la fuente de verdad
     // es la orden creada por create_order (precios recalculados en BD).
-    const [orders] = await db.query(
-      'SELECT id, total, shipping_cost FROM orders WHERE external_reference = ? ORDER BY id DESC LIMIT 1',
-      [externalReference]
-    );
-    if (!orders.length) {
+    //
+    // El front dispara create_order y create_preference casi en paralelo,
+    // así que la orden puede no estar commiteada todavía. Reintentamos con
+    // un backoff corto antes de devolver 404 (evita el 404 intermitente que
+    // impediría pagar).
+    let order = null;
+    for (let attempt = 0; attempt < 6 && !order; attempt++) {
+      const [orders] = await db.query(
+        'SELECT id, total, shipping_cost FROM orders WHERE external_reference = ? ORDER BY id DESC LIMIT 1',
+        [externalReference]
+      );
+      if (orders.length) {
+        order = orders[0];
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    if (!order) {
+      logger.error(`Orden no encontrada para external_reference ${externalReference} tras reintentos`);
       return res.status(404).json({ error: 'Orden no encontrada para esa referencia' });
     }
-    const order = orders[0];
 
     const [orderItems] = await db.query(
       `SELECT oi.quantity, oi.price, oi.grams, oi.grind, p.name
