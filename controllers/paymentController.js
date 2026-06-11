@@ -1,9 +1,49 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
+const db = require('../models/db');
 const { changeOrderStatusByExternalReference } = require('./orderController');
 const { sendOrderConfirmation } = require('./emailsController');
 const orderService = require('../Helpers/orderHelper');
 const { sendOrderConfirmationEmail } = require('../Helpers/emailHelper');
+const { round2 } = require('../Helpers/pricingHelper');
+
+// ===== Verificación de firma del webhook de MercadoPago =====
+// MP firma cada notificación con el secret del webhook (se obtiene en
+// Tus integraciones > Webhooks). Sin esta verificación, cualquiera puede
+// POSTear al webhook y marcar órdenes como pagadas sin pagar.
+// Header x-signature: "ts=<timestamp>,v1=<hmac>"
+// Manifest: "id:<data.id>;request-id:<x-request-id>;ts:<ts>;"
+const verifyWebhookSignature = (req, dataId) => {
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.warn(
+      '⚠️ MERCADOPAGO_WEBHOOK_SECRET no configurado: el webhook NO valida firma. Configurarlo en el .env (Mercado Pago > Tus integraciones > Webhooks).'
+    );
+    return true; // no romper hasta que se configure el secret
+  }
+
+  const signature = req.headers['x-signature'];
+  const requestId = req.headers['x-request-id'];
+  if (!signature) return false;
+
+  const parts = Object.fromEntries(
+    signature.split(',').map((part) => part.split('=').map((s) => s.trim()))
+  );
+  if (!parts.ts || !parts.v1) return false;
+
+  const manifest = `id:${String(dataId).toLowerCase()};request-id:${requestId};ts:${parts.ts};`;
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(manifest)
+    .digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
+  } catch {
+    return false;
+  }
+};
 
 // Cache para evitar procesar webhooks duplicados
 // Estructura: { paymentId: timestamp }
@@ -22,19 +62,64 @@ setInterval(() => {
 
 exports.createPreference = async (req, res) => {
   try {
-    const body = req.body;
-    logger.log('Parsed body:', body);
+    const externalReference = req.body.external_reference;
+    if (!externalReference) {
+      return res.status(400).json({ error: 'external_reference es requerido' });
+    }
 
-    const externalReference = body.external_reference;
-    const items = body.items.map(item => ({
-      title: item.title,
+    // ===== Los items se construyen desde la ORDEN EN LA BD =====
+    // Antes se usaban los items que mandaba el navegador: un cliente
+    // malicioso podía pagar cualquier monto. Ahora la fuente de verdad
+    // es la orden creada por create_order (precios recalculados en BD).
+    const [orders] = await db.query(
+      'SELECT id, total, shipping_cost FROM orders WHERE external_reference = ? ORDER BY id DESC LIMIT 1',
+      [externalReference]
+    );
+    if (!orders.length) {
+      return res.status(404).json({ error: 'Orden no encontrada para esa referencia' });
+    }
+    const order = orders[0];
+
+    const [orderItems] = await db.query(
+      `SELECT oi.quantity, oi.price, oi.grams, oi.grind, p.name
+       FROM order_items oi
+       JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = ?`,
+      [order.id]
+    );
+
+    const items = orderItems.map((item) => ({
+      title: item.grams ? `${item.name} (${item.grams}g)` : item.name,
       quantity: Number(item.quantity),
-      unit_price: Number(item.unit_price),
-      currency_id: 'UYU'
-      
+      unit_price: Number(item.price),
+      currency_id: 'UYU',
     }));
 
-    logger.log('Items:', items);
+    // Descuentos (BOGO + cupón) como línea negativa: diferencia exacta
+    // entre la suma de items + envío y el total real de la orden.
+    const itemsSum = round2(
+      orderItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0)
+    );
+    const shippingCost = Number(order.shipping_cost) || 0;
+    const discountTotal = round2(itemsSum + shippingCost - Number(order.total));
+    if (discountTotal > 0) {
+      items.push({
+        title: 'Descuentos y promociones',
+        quantity: 1,
+        unit_price: -discountTotal,
+        currency_id: 'UYU',
+      });
+    }
+    if (shippingCost > 0) {
+      items.push({
+        title: 'Costo de envío',
+        quantity: 1,
+        unit_price: shippingCost,
+        currency_id: 'UYU',
+      });
+    }
+
+    logger.log('Items (desde la BD):', items);
 
     const preferenceBody = {
       items: items,
@@ -74,13 +159,19 @@ exports.webhook = async (req, res) => {
 
     let paymentId = null;
 
-    // Verificamos si el cuerpo tiene un `data` con `id`, como en el tercer caso
-    if (!req.body.data || !req.body.data.id) {
-      logger.error('Payment ID not found in the webhook body');
+    // MP puede mandar el id en el body (data.id) o como query param (?data.id=)
+    paymentId = (req.body.data && req.body.data.id) || req.query['data.id'];
+    if (!paymentId) {
+      logger.error('Payment ID not found in the webhook');
       return res.status(400).send('Invalid webhook structure');
     }
 
-    paymentId = req.body.data.id;
+    // Verificación de firma: rechazar notificaciones que no vengan de MP
+    if (!verifyWebhookSignature(req, paymentId)) {
+      logger.error(`🚫 Webhook con firma inválida rechazado (Payment ID: ${paymentId})`);
+      return res.status(401).send('Invalid signature');
+    }
+
     logger.log('Payment ID:', paymentId);
 
     // ✅ DEDUPLICACIÓN: Verificar si ya procesamos este webhook
@@ -106,6 +197,19 @@ exports.webhook = async (req, res) => {
           const { status, status_detail, external_reference } = data;
           if (status === 'approved' && status_detail === 'accredited') {
             logger.log('Payment approved and accredited');
+
+            // Idempotencia: si la orden ya está pagada (reintento de MP o
+            // webhook duplicado tras reinicio del server), no reprocesar
+            // ni mandar el email de confirmación de nuevo.
+            const [existingOrders] = await db.query(
+              'SELECT id, status FROM orders WHERE external_reference = ? ORDER BY id DESC LIMIT 1',
+              [external_reference]
+            );
+            if (existingOrders.length && existingOrders[0].status !== 'No Pagado') {
+              logger.log(`⏭️ Orden ${existingOrders[0].id} ya procesada (estado: ${existingOrders[0].status}), webhook ignorado`);
+              return res.sendStatus(200);
+            }
+
             try {
               const { orderId, status } = await orderService.changeOrderStatusByExternalReference(
                 external_reference,

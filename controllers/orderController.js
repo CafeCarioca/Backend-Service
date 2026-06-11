@@ -1,5 +1,11 @@
 const pool = require('../models/db');
 const logger = require('../utils/logger');
+const {
+  priceCartItems,
+  validateCouponForOrder,
+  computeShippingCost,
+  round2,
+} = require('../Helpers/pricingHelper');
 
 
 
@@ -225,79 +231,57 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    const getBogoDiscount = (product) => {
-      if (!product.discount || product.discount.type !== 'bogo') return 0;
-      const quantity = Number(product.quantity) || 0;
-      const unitPrice = Number(product.price) || 0;
-      return Math.floor(quantity / 2) * unitPrice;
-    };
+    // ===== Recálculo SERVER-SIDE: precios, descuentos, cupón y envío =====
+    // Del cliente solo se usan blendName/grams/grind/quantity; los montos
+    // se recalculan contra la BD para impedir manipulación desde el navegador.
+    const { pricedItems, itemsTotal, productDiscountTotal } =
+      await priceCartItems(connection, products, shippingType);
 
-    const bogoDiscountTotal = products.reduce((sum, product) => sum + getBogoDiscount(product), 0);
+    const couponResult = coupon && coupon.code
+      ? await validateCouponForOrder(connection, coupon.code, shippingType, itemsTotal)
+      : null;
+    const couponDiscount = couponResult ? couponResult.discountAmount : 0;
+    const couponCode = couponResult ? couponResult.coupon.code : null;
 
-    let total = products.reduce((sum, product) => sum + product.price * product.quantity, 0);
-    total = Math.max(0, total - bogoDiscountTotal);
-    logger.log(`🛒 Subtotal productos: $${total}`);
-    
-    // Si hay un cupón, restar el descuento del total
-    if (coupon && coupon.discountAmount) {
-      total = Math.max(0, total - coupon.discountAmount);
-      logger.log(`💰 Total con cupón: $${total} (descuento: $${coupon.discountAmount})`);
+    const serverShippingCost = computeShippingCost({
+      deliveryType: shippingType,
+      department: userDetails.address ? userDetails.address.department : null,
+      itemsTotal,
+    });
+    if (Math.abs((Number(finalShippingCost) || 0) - serverShippingCost) > 0.01) {
+      logger.warn(
+        `⚠️ Envío del cliente ($${finalShippingCost}) difiere del calculado ($${serverShippingCost}). Se usa el del servidor.`
+      );
     }
 
-    // Agregar el costo de envío al total
-    const subtotalBeforeShipping = total;
-    total += finalShippingCost;
-    logger.log(`📦 Total final: $${total} (subtotal: $${subtotalBeforeShipping}, envío: $${finalShippingCost})`);
-    logger.log(`📋 Tipo de envío: ${shippingType}`);
+    const total = round2(Math.max(0, itemsTotal - couponDiscount) + serverShippingCost);
+    logger.log(
+      `🛒 Total server-side: $${total} (items: $${itemsTotal}, cupón: -$${couponDiscount}, envío: $${serverShippingCost}, desc. productos: $${productDiscountTotal})`
+    );
 
-    // Calcular descuentos de productos
-    let productDiscountTotal = 0;
-    products.forEach(product => {
-      if (product.discount && product.discount.type === 'bogo') {
-        productDiscountTotal += getBogoDiscount(product);
-      } else if (product.originalPrice && product.price) {
-        const itemDiscount = (parseFloat(product.originalPrice) - parseFloat(product.price)) * product.quantity;
-        productDiscountTotal += itemDiscount;
-      }
-    });
-
-    // Insertar la orden con el tipo de envío ye address_id (NULL si es takeaway)
-    const couponCode = coupon ? coupon.code : null;
-    const couponDiscount = coupon && coupon.discountAmount ? coupon.discountAmount : 0;
-
+    // Insertar la orden con el tipo de envío y address_id (NULL si es takeaway)
     const [orderResult] = await connection.execute(
       'INSERT INTO orders (user_id, address_id, status, total, external_reference, shipping_type, shipping_cost, coupon_code, coupon_discount, product_discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [userId, addressId, 'No Pagado', total, external_reference, shippingType, finalShippingCost, couponCode, couponDiscount, productDiscountTotal]
+      [userId, addressId, 'No Pagado', total, external_reference, shippingType, serverShippingCost, couponCode, couponDiscount, productDiscountTotal]
     );
 
     const orderId = orderResult.insertId;
 
-    for (const product of products) {
-      const [existingProduct] = await connection.execute(
-        'SELECT id FROM products WHERE name = ?',
-        [product.blendName]
-      );
-
-      if (existingProduct.length === 0) {
-        throw new Error(`Product ${product.blendName} does not exist in the database.`);
-      }
-
-      const productId = existingProduct[0].id;
-
+    for (const item of pricedItems) {
       await connection.execute(
         'INSERT INTO order_items (order_id, product_id, quantity, price, grams, grind) VALUES (?, ?, ?, ?, ?, ?)',
-        [orderId, productId, product.quantity, product.price, product.grams, product.grind]
+        [orderId, item.productId, item.quantity, item.unitPrice, item.grams, item.grind]
       );
     }
 
-    // Si se aplicó un cupón, guardarlo en order_coupons (opcional)
-    if (coupon && coupon.id && coupon.discountAmount) {
+    // Si se aplicó un cupón válido, registrarlo en order_coupons
+    if (couponResult && couponDiscount > 0) {
       try {
         await connection.execute(
           'INSERT INTO order_coupons (order_id, coupon_id, discount_applied) VALUES (?, ?, ?)',
-          [orderId, coupon.id, coupon.discountAmount]
+          [orderId, couponResult.coupon.id, couponDiscount]
         );
-        logger.log(`✅ Cupón ${coupon.id} registrado en orden ${orderId}`);
+        logger.log(`✅ Cupón ${couponResult.coupon.code} registrado en orden ${orderId}`);
       } catch (couponError) {
         // Si falla guardar el cupón, solo logueamos pero no afectamos la creación de la orden
         logger.warn(`⚠️ Error al registrar cupón en orden ${orderId}:`, couponError.message);
