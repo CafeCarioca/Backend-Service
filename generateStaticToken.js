@@ -17,8 +17,10 @@ if (!secretKey) {
   process.exit(1);
 }
 
-// Genera el token (sin expiración)
-const token = jwt.sign(payload, secretKey);
+// Genera el token con expiración: si se filtra, deja de servir solo.
+// Al expirar hay que regenerarlo y actualizar REACT_APP_API_TOKEN en el
+// .env del BackOffice (y rebuildearlo).
+const token = jwt.sign(payload, secretKey, { expiresIn: "90d" });
 
-logger.log("Tu JWT estático es:");
+logger.log("Tu JWT estático es (expira en 90 días):");
 logger.log(token);
