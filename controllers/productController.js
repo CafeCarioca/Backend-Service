@@ -5,7 +5,15 @@ const logger = require('../utils/logger');
 // deliveryType: 'delivery', 'takeaway', o null (devuelve todos los descuentos activos)
 const getActiveDiscount = async (productId, deliveryType = null) => {
   let query = `
-    SELECT d.*
+    SELECT d.*,
+      (SELECT GROUP_CONCAT(pr.id ORDER BY pr.id)
+       FROM discount_presentations dp
+       INNER JOIN presentations pr ON pr.id = dp.presentation_id
+       WHERE dp.discount_id = d.id AND pr.product_id = pd.product_id) AS presentation_ids,
+      (SELECT GROUP_CONCAT(pr.weight ORDER BY pr.id SEPARATOR '|')
+       FROM discount_presentations dp
+       INNER JOIN presentations pr ON pr.id = dp.presentation_id
+       WHERE dp.discount_id = d.id AND pr.product_id = pd.product_id) AS presentation_weights
     FROM discounts d
     INNER JOIN product_discounts pd ON d.id = pd.discount_id
     WHERE pd.product_id = ?
@@ -65,7 +73,13 @@ const addDiscountInfo = async (product, deliveryType = null) => {
         value: discount.discount_value,
         start_date: discount.start_date,
         end_date: discount.end_date,
-        delivery_type: discount.delivery_type
+        delivery_type: discount.delivery_type,
+        presentation_ids: discount.presentation_ids
+          ? discount.presentation_ids.split(',').map(Number)
+          : [],
+        presentation_weights: discount.presentation_weights
+          ? discount.presentation_weights.split('|')
+          : []
       },
       discounted_price: finalPrice,
       has_discount: true

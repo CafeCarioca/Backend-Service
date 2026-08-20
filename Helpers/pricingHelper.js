@@ -52,14 +52,18 @@ const discountedUnitPrice = (unitPrice, discount) => {
   return unitPrice; // bogo: el precio unitario no cambia
 };
 
-const getActiveDiscountForProduct = async (connection, productId, deliveryType) => {
+const getActiveDiscountForProduct = async (connection, productId, deliveryType, grams) => {
   // ORDER BY discount_value DESC para que coincida con el descuento que
   // muestra la tienda (productController usa el mismo criterio): si un
   // producto tuviera 2+ descuentos activos, el precio cobrado es el mismo
   // que el exhibido. El filtro de delivery_type evita aplicar un descuento
   // delivery-only a un retiro en tienda.
   const [rows] = await connection.execute(
-    `SELECT d.id, d.discount_type, d.discount_value, d.delivery_type
+    `SELECT d.id, d.discount_type, d.discount_value, d.delivery_type,
+       (SELECT GROUP_CONCAT(pr.weight ORDER BY pr.id SEPARATOR '|')
+        FROM discount_presentations dp
+        INNER JOIN presentations pr ON pr.id = dp.presentation_id
+        WHERE dp.discount_id = d.id AND pr.product_id = ?) AS presentation_weights
      FROM discounts d
      JOIN product_discounts pd ON pd.discount_id = d.id
      WHERE pd.product_id = ?
@@ -67,11 +71,16 @@ const getActiveDiscountForProduct = async (connection, productId, deliveryType) 
        AND (d.start_date IS NULL OR d.start_date <= CURDATE())
        AND (d.end_date IS NULL OR d.end_date >= CURDATE())
        AND (d.delivery_type = 'both' OR d.delivery_type = ?)
-     ORDER BY d.discount_value DESC
-     LIMIT 1`,
-    [productId, deliveryType || 'delivery']
+     ORDER BY d.discount_value DESC`,
+    [productId, productId, deliveryType || 'delivery']
   );
-  return rows[0] || null;
+  return rows.find((discount) => {
+    if (!discount.presentation_weights) return true;
+    if (!grams) return false;
+    return discount.presentation_weights
+      .split('|')
+      .some((weight) => weightToGrams(weight) === grams);
+  }) || null;
 };
 
 /**
@@ -127,7 +136,8 @@ const priceCartItems = async (connection, items, deliveryType) => {
     const discount = await getActiveDiscountForProduct(
       connection,
       product.id,
-      deliveryType
+      deliveryType,
+      grams
     );
     const unitPrice = round2(discountedUnitPrice(baseUnitPrice, discount));
     const bogoDiscount =

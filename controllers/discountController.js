@@ -1,6 +1,17 @@
 const db = require('../models/db');
 const logger = require('../utils/logger');
 
+const replaceDiscountPresentations = async (connection, discountId, presentationIds = []) => {
+    await connection.query('DELETE FROM discount_presentations WHERE discount_id = ?', [discountId]);
+    if (presentationIds.length > 0) {
+        const values = [...new Set(presentationIds.map(Number))].map(presentationId => [discountId, presentationId]);
+        await connection.query(
+            'INSERT INTO discount_presentations (discount_id, presentation_id) VALUES ?',
+            [values]
+        );
+    }
+};
+
 // Obtener todos los descuentos con información de productos asignados
 const getAllDiscounts = async (req, res) => {
     try {
@@ -48,9 +59,19 @@ const getDiscountById = async (req, res) => {
             WHERE pd.discount_id = ?
         `, [id]);
 
+        const [presentations] = await db.query(`
+            SELECT dp.presentation_id, pr.product_id, pr.weight, pr.price
+            FROM discount_presentations dp
+            INNER JOIN presentations pr ON pr.id = dp.presentation_id
+            WHERE dp.discount_id = ?
+            ORDER BY pr.product_id, pr.id
+        `, [id]);
+
         res.json({
             ...discounts[0],
-            products
+            products,
+            presentation_ids: presentations.map(presentation => presentation.presentation_id),
+            presentations
         });
     } catch (error) {
         logger.error('Error al obtener descuento:', error);
@@ -69,7 +90,8 @@ const createDiscount = async (req, res) => {
         delivery_type = 'both',
         start_date = null,
         end_date = null,
-        product_ids = []
+        product_ids = [],
+        presentation_ids = []
     } = req.body;
 
     // Validaciones
@@ -89,9 +111,12 @@ const createDiscount = async (req, res) => {
         return res.status(400).json({ message: 'discount_value debe ser mayor a 0' });
     }
 
+    let connection;
     try {
         // Insertar descuento
-        const [result] = await db.query(
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+        const [result] = await connection.query(
             `INSERT INTO discounts (name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date]
@@ -102,11 +127,16 @@ const createDiscount = async (req, res) => {
         // Asignar productos si se proporcionaron
         if (product_ids && product_ids.length > 0) {
             const values = product_ids.map(productId => [productId, discountId]);
-            await db.query(
+            await connection.query(
                 'INSERT INTO product_discounts (product_id, discount_id) VALUES ?',
                 [values]
             );
         }
+
+        await replaceDiscountPresentations(connection, discountId, presentation_ids);
+        await connection.commit();
+        connection.release();
+        connection = null;
 
         res.status(201).json({
             message: 'Descuento creado exitosamente',
@@ -114,6 +144,10 @@ const createDiscount = async (req, res) => {
             product_count: product_ids.length
         });
     } catch (error) {
+        if (connection) {
+            await connection.rollback();
+            connection.release();
+        }
         logger.error('Error al crear descuento:', error);
         res.status(500).json({ message: 'Error al crear descuento', error: error.message });
     }
@@ -130,7 +164,8 @@ const updateDiscount = async (req, res) => {
         is_active,
         delivery_type,
         start_date,
-        end_date
+        end_date,
+        presentation_ids
     } = req.body;
 
     try {
@@ -195,6 +230,10 @@ const updateDiscount = async (req, res) => {
             `UPDATE discounts SET ${updates.join(', ')} WHERE id = ?`,
             values
         );
+
+        if (presentation_ids !== undefined) {
+            await replaceDiscountPresentations(db, id, presentation_ids);
+        }
 
         res.json({ message: 'Descuento actualizado exitosamente' });
     } catch (error) {
@@ -261,6 +300,12 @@ const removeProductFromDiscount = async (req, res) => {
             [id, productId]
         );
 
+        await db.query(`
+            DELETE dp FROM discount_presentations dp
+            INNER JOIN presentations pr ON pr.id = dp.presentation_id
+            WHERE dp.discount_id = ? AND pr.product_id = ?
+        `, [id, productId]);
+
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Relación no encontrada' });
         }
@@ -278,10 +323,15 @@ const getProductsByDiscount = async (req, res) => {
 
     try {
         const [products] = await db.query(`
-            SELECT p.*
+            SELECT p.*,
+                   GROUP_CONCAT(dp.presentation_id ORDER BY dp.presentation_id) AS discount_presentation_ids
             FROM products p
             INNER JOIN product_discounts pd ON p.id = pd.product_id
+            LEFT JOIN presentations pr ON pr.product_id = p.id
+            LEFT JOIN discount_presentations dp
+              ON dp.discount_id = pd.discount_id AND dp.presentation_id = pr.id
             WHERE pd.discount_id = ?
+            GROUP BY p.id
             ORDER BY p.name
         `, [id]);
 
