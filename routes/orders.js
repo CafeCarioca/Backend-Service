@@ -4,7 +4,7 @@ const orderscontroller = require('../controllers/orderController');
 const validateToken = require('../middlewares/authMiddleware');
 
 
-router.post('/create_order', validateToken,orderscontroller.createOrder);
+router.post('/create_order', orderscontroller.createOrder);
 
 router.put('/change_order_status/:external_reference', validateToken,orderscontroller.changeOrderStatusByExternalReference);
 
