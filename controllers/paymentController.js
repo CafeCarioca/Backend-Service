@@ -227,6 +227,22 @@ exports.webhook = async (req, res) => {
               return res.sendStatus(200);
             }
 
+            // 🔒 Cinturón de seguridad anti-fraude "pago barato / orden cara":
+            // external_reference NO es único, así que validamos que lo realmente
+            // pagado alcance para la orden que se va a acreditar (la misma que tomará
+            // el helper: primera No Pagado por id de esa referencia). Si se pagó de
+            // menos, no se acredita. Si no viene el monto (0), no bloqueamos (fail-open
+            // para no romper pagos legítimos por un campo ausente).
+            const paidAmount = Number(data.transaction_amount || 0);
+            const [ordersToCredit] = await db.query(
+              "SELECT id, total FROM orders WHERE external_reference = ? AND status = 'No Pagado' ORDER BY id ASC LIMIT 1",
+              [external_reference]
+            );
+            if (ordersToCredit.length && paidAmount > 0 && paidAmount + 0.5 < Number(ordersToCredit[0].total)) {
+              logger.error(`⚠️ FRAUDE POSIBLE: pago ${paymentId} de $${paidAmount} < total $${ordersToCredit[0].total} de la orden ${ordersToCredit[0].id} (ref ${external_reference}). NO se acredita.`);
+              return res.sendStatus(200);
+            }
+
             try {
               const { orderId, status } = await orderService.changeOrderStatusByExternalReference(
                 external_reference,
