@@ -247,6 +247,7 @@ exports.createOrder = async (req, res) => {
       deliveryType: shippingType,
       department: userDetails.address ? userDetails.address.department : null,
       itemsTotal,
+      items: pricedItems, // para la promo "Nespresso x10 → envío gratis"
     });
     if (Math.abs((Number(finalShippingCost) || 0) - serverShippingCost) > 0.01) {
       logger.warn(

@@ -61,6 +61,7 @@ const discountsRoute = require('./routes/discounts');
 const couponsRoute = require('./routes/coupons');
 const categoriesRoute = require('./routes/categories');
 const newsletterRoute = require('./routes/newsletter');
+const shippingRoute = require('./routes/shipping');
 
 
 app.use(bodyParser.json());
@@ -76,6 +77,7 @@ app.use('/discounts', discountsRoute);
 app.use('/coupons', couponsRoute);
 app.use('/categories', categoriesRoute);
 app.use('/newsletter', newsletterRoute);
+app.use('/shipping', shippingRoute);
 
 // Route API Google Reviews
 

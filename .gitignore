@@ -3,3 +3,6 @@ node_modules/
 .env
 .env.*
 dist/
+
+# El ejemplo si se versiona (documenta las variables)
+!.env.example

@@ -10,14 +10,44 @@ const logger = require('../utils/logger');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-// ===== Envío: espejo de las reglas del front (Checkout.js) =====
+// ===== Envío: FUENTE DE VERDAD (la tienda consulta GET /shipping/rules) =====
 // Montevideo delivery: $180, gratis desde $1500. Interior: $0 (se
 // coordina aparte). Takeaway: $0.
+// Promo "Nespresso x10": con N+ cajas de cápsulas Nespresso en el carrito,
+// envío gratis (Montevideo e interior). Para APAGARLA: poner
+// FREE_SHIPPING_NESPRESSO_MIN_QTY=0 en env/.env.backend y recrear el backend.
 const MVD_SHIPPING_COST = 180;
 const MVD_FREE_SHIPPING_FROM = 1500;
+const NESPRESSO_FREE_SHIPPING_MIN_QTY = Math.max(
+  0,
+  Number(process.env.FREE_SHIPPING_NESPRESSO_MIN_QTY ?? 10) || 0
+);
 
-const computeShippingCost = ({ deliveryType, department, itemsTotal }) => {
+// Las cápsulas Nespresso se identifican por el nombre del producto
+// (p.ej. "ROMA NespressoX10"); las Dolce Gusto dicen "DGX16".
+const isNespressoItem = (item) =>
+  /nespresso/i.test(String(item?.name || item?.blendName || ''));
+
+const countNespressoBoxes = (items = []) =>
+  items.reduce(
+    (sum, item) => sum + (isNespressoItem(item) ? Number(item.quantity) || 0 : 0),
+    0
+  );
+
+const getShippingRules = () => ({
+  mvdCost: MVD_SHIPPING_COST,
+  mvdFreeFrom: MVD_FREE_SHIPPING_FROM,
+  nespressoFreeQty: NESPRESSO_FREE_SHIPPING_MIN_QTY, // 0 = promo apagada
+});
+
+const computeShippingCost = ({ deliveryType, department, itemsTotal, items = [] }) => {
   if (deliveryType !== 'delivery') return 0;
+  if (
+    NESPRESSO_FREE_SHIPPING_MIN_QTY > 0 &&
+    countNespressoBoxes(items) >= NESPRESSO_FREE_SHIPPING_MIN_QTY
+  ) {
+    return 0; // promo Nespresso: gratis en Montevideo e interior
+  }
   const isMontevideo =
     String(department || '').trim().toLowerCase() === 'montevideo';
   if (!isMontevideo) return 0;
@@ -223,5 +253,7 @@ module.exports = {
   priceCartItems,
   validateCouponForOrder,
   computeShippingCost,
+  getShippingRules,
+  countNespressoBoxes,
   round2,
 };
