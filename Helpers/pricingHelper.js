@@ -10,6 +10,12 @@ const logger = require('../utils/logger');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+// Día de la semana en Uruguay (0 = domingo ... 6 = sábado), sin depender de la
+// zona horaria del servidor. Lo usan los descuentos por día (Semana Carioca).
+const WEEKDAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const montevideoWeekday = (date = new Date()) =>
+  WEEKDAYS[new Intl.DateTimeFormat('en-US', { timeZone: 'America/Montevideo', weekday: 'short' }).format(date)];
+
 // ===== Envío: FUENTE DE VERDAD (la tienda consulta GET /shipping/rules) =====
 // Montevideo delivery: $180, gratis desde $1500. Interior: $0 en la web, el
 // cliente paga la agencia; compra mínima INTERIOR_MIN_PURCHASE (default $1000,
@@ -114,9 +120,10 @@ const getActiveDiscountForProduct = async (connection, productId, deliveryType, 
        AND d.is_active = 1
        AND (d.start_date IS NULL OR d.start_date <= CURDATE())
        AND (d.end_date IS NULL OR d.end_date >= CURDATE())
+       AND (d.weekday IS NULL OR d.weekday = ?)
        AND (d.delivery_type = 'both' OR d.delivery_type = ?)
      ORDER BY d.discount_value DESC`,
-    [productId, productId, deliveryType || 'delivery']
+    [productId, productId, montevideoWeekday(), deliveryType || 'delivery']
   );
   return rows.find((discount) => {
     if (!discount.presentation_weights) return true;
@@ -267,6 +274,7 @@ module.exports = {
   priceCartItems,
   validateCouponForOrder,
   computeShippingCost,
+  montevideoWeekday,
   interiorMinimumShortfall,
   getShippingRules,
   countNespressoBoxes,

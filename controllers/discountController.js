@@ -1,5 +1,10 @@
 const db = require('../models/db');
 const logger = require('../utils/logger');
+const { montevideoWeekday } = require('../Helpers/pricingHelper');
+
+// weekday: null = todos los días; 0 (domingo) a 6 (sábado) = solo ese día (Semana Carioca)
+const isValidWeekday = (weekday) =>
+    weekday === null || (Number.isInteger(weekday) && weekday >= 0 && weekday <= 6);
 
 const replaceDiscountPresentations = async (connection, discountId, presentationIds = []) => {
     await connection.query('DELETE FROM discount_presentations WHERE discount_id = ?', [discountId]);
@@ -26,13 +31,14 @@ const getAllDiscounts = async (req, res) => {
                 d.delivery_type,
                 d.start_date,
                 d.end_date,
+                d.weekday,
                 d.created_at,
                 d.updated_at,
                 COUNT(pd.product_id) as product_count
             FROM discounts d
             LEFT JOIN product_discounts pd ON d.id = pd.discount_id
             GROUP BY d.id, d.name, d.description, d.discount_type, d.discount_value, 
-                     d.is_active, d.delivery_type, d.start_date, d.end_date, d.created_at, d.updated_at
+                     d.is_active, d.delivery_type, d.start_date, d.end_date, d.weekday, d.created_at, d.updated_at
             ORDER BY d.created_at DESC
         `);
         res.json(discounts);
@@ -90,6 +96,7 @@ const createDiscount = async (req, res) => {
         delivery_type = 'both',
         start_date = null,
         end_date = null,
+        weekday = null,
         product_ids = [],
         presentation_ids = []
     } = req.body;
@@ -111,15 +118,19 @@ const createDiscount = async (req, res) => {
         return res.status(400).json({ message: 'discount_value debe ser mayor a 0' });
     }
 
+    if (!isValidWeekday(weekday)) {
+        return res.status(400).json({ message: 'weekday debe ser null (todos los días) o un número de 0 (domingo) a 6 (sábado)' });
+    }
+
     let connection;
     try {
         // Insertar descuento
         connection = await db.getConnection();
         await connection.beginTransaction();
         const [result] = await connection.query(
-            `INSERT INTO discounts (name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date]
+            `INSERT INTO discounts (name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date, weekday)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, description, discount_type, discount_value, is_active, delivery_type, start_date, end_date, weekday]
         );
 
         const discountId = result.insertId;
@@ -165,6 +176,7 @@ const updateDiscount = async (req, res) => {
         delivery_type,
         start_date,
         end_date,
+        weekday,
         presentation_ids
     } = req.body;
 
@@ -219,6 +231,13 @@ const updateDiscount = async (req, res) => {
         if (end_date !== undefined) {
             updates.push('end_date = ?');
             values.push(end_date);
+        }
+        if (weekday !== undefined) {
+            if (!isValidWeekday(weekday)) {
+                return res.status(400).json({ message: 'weekday debe ser null (todos los días) o un número de 0 (domingo) a 6 (sábado)' });
+            }
+            updates.push('weekday = ?');
+            values.push(weekday);
         }
 
         if (updates.length === 0) {
@@ -355,9 +374,10 @@ const getActiveDiscountForProduct = async (req, res) => {
             AND d.is_active = TRUE
             AND (d.start_date IS NULL OR d.start_date <= CURDATE())
             AND (d.end_date IS NULL OR d.end_date >= CURDATE())
+            AND (d.weekday IS NULL OR d.weekday = ?)
             ORDER BY d.discount_value DESC
             LIMIT 1
-        `, [productId]);
+        `, [productId, montevideoWeekday()]);
 
         if (discounts.length === 0) {
             return res.json({ hasDiscount: false });

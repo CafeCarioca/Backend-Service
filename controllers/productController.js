@@ -1,5 +1,6 @@
 const db = require('../models/db');
 const logger = require('../utils/logger');
+const { montevideoWeekday } = require('../Helpers/pricingHelper');
 
 // Función helper para calcular el descuento activo de un producto
 // deliveryType: 'delivery', 'takeaway', o null (devuelve todos los descuentos activos)
@@ -19,9 +20,10 @@ const getActiveDiscount = async (productId, deliveryType = null) => {
     WHERE pd.product_id = ?
     AND d.is_active = TRUE
     AND (d.start_date IS NULL OR d.start_date <= CURDATE())
-    AND (d.end_date IS NULL OR d.end_date >= CURDATE())`;
+    AND (d.end_date IS NULL OR d.end_date >= CURDATE())
+    AND (d.weekday IS NULL OR d.weekday = ?)`;
   
-  const params = [productId];
+  const params = [productId, montevideoWeekday()];
   
   // Si se especifica deliveryType, filtrar descuentos
   if (deliveryType) {
