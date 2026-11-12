@@ -11,13 +11,18 @@ const logger = require('../utils/logger');
 const round2 = (n) => Math.round(n * 100) / 100;
 
 // ===== Envío: FUENTE DE VERDAD (la tienda consulta GET /shipping/rules) =====
-// Montevideo delivery: $180, gratis desde $1500. Interior: $0 (se
-// coordina aparte). Takeaway: $0.
+// Montevideo delivery: $180, gratis desde $1500. Interior: $0 en la web, el
+// cliente paga la agencia; compra mínima INTERIOR_MIN_PURCHASE (default $1000,
+// 0 = sin mínimo). Takeaway: $0.
 // Promo "Nespresso x10": con N+ cajas de cápsulas Nespresso en el carrito,
 // envío gratis (Montevideo e interior). Para APAGARLA: poner
 // FREE_SHIPPING_NESPRESSO_MIN_QTY=0 en env/.env.backend y recrear el backend.
 const MVD_SHIPPING_COST = 180;
 const MVD_FREE_SHIPPING_FROM = 1500;
+const INTERIOR_MIN_PURCHASE = Math.max(
+  0,
+  Number(process.env.INTERIOR_MIN_PURCHASE ?? 1000) || 0
+);
 const NESPRESSO_FREE_SHIPPING_MIN_QTY = Math.max(
   0,
   Number(process.env.FREE_SHIPPING_NESPRESSO_MIN_QTY ?? 10) || 0
@@ -38,7 +43,18 @@ const getShippingRules = () => ({
   mvdCost: MVD_SHIPPING_COST,
   mvdFreeFrom: MVD_FREE_SHIPPING_FROM,
   nespressoFreeQty: NESPRESSO_FREE_SHIPPING_MIN_QTY, // 0 = promo apagada
+  interiorMinPurchase: INTERIOR_MIN_PURCHASE, // 0 = sin mínimo
 });
+
+const isMontevideoDept = (department) =>
+  String(department || '').trim().toLowerCase() === 'montevideo';
+
+// Devuelve cuánto falta si una compra con envío al interior no llega al mínimo, o 0.
+const interiorMinimumShortfall = ({ deliveryType, department, itemsTotal }) => {
+  if (deliveryType !== 'delivery' || INTERIOR_MIN_PURCHASE <= 0) return 0;
+  if (isMontevideoDept(department)) return 0;
+  return itemsTotal < INTERIOR_MIN_PURCHASE ? round2(INTERIOR_MIN_PURCHASE - itemsTotal) : 0;
+};
 
 const computeShippingCost = ({ deliveryType, department, itemsTotal, items = [] }) => {
   if (deliveryType !== 'delivery') return 0;
@@ -48,9 +64,7 @@ const computeShippingCost = ({ deliveryType, department, itemsTotal, items = [] 
   ) {
     return 0; // promo Nespresso: gratis en Montevideo e interior
   }
-  const isMontevideo =
-    String(department || '').trim().toLowerCase() === 'montevideo';
-  if (!isMontevideo) return 0;
+  if (!isMontevideoDept(department)) return 0;
   return itemsTotal >= MVD_FREE_SHIPPING_FROM ? 0 : MVD_SHIPPING_COST;
 };
 
@@ -253,6 +267,7 @@ module.exports = {
   priceCartItems,
   validateCouponForOrder,
   computeShippingCost,
+  interiorMinimumShortfall,
   getShippingRules,
   countNespressoBoxes,
   round2,

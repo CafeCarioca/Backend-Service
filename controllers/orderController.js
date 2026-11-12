@@ -4,6 +4,7 @@ const {
   priceCartItems,
   validateCouponForOrder,
   computeShippingCost,
+  interiorMinimumShortfall,
   round2,
 } = require('../Helpers/pricingHelper');
 
@@ -236,6 +237,20 @@ exports.createOrder = async (req, res) => {
     // se recalculan contra la BD para impedir manipulación desde el navegador.
     const { pricedItems, itemsTotal, productDiscountTotal } =
       await priceCartItems(connection, products, shippingType);
+
+    // Compra mínima para envíos al interior (la tienda ya lo avisa; esto evita saltearlo)
+    const shortfall = interiorMinimumShortfall({
+      deliveryType: shippingType,
+      department: userDetails.address ? userDetails.address.department : null,
+      itemsTotal,
+    });
+    if (shortfall > 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({
+        message: `El mínimo de compra para envíos al interior no se alcanza (faltan $${shortfall}).`,
+      });
+    }
 
     const couponResult = coupon && coupon.code
       ? await validateCouponForOrder(connection, coupon.code, shippingType, itemsTotal)
